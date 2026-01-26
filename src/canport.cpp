@@ -7,20 +7,22 @@
 #include <algorithm>
 
 
-#include <fcntl.h>
-#include <unistd.h>
-#include <errno.h>
-
-
 canport::canport(uint8_t portx, std::string serial_full_prefix)
 {
-    struct sp_port *ser = nullptr;
+    serial_init(portx, serial_full_prefix);
 
+
+}
+
+
+void canport::serial_init(uint8_t portx, std::string serial_full_prefix)
+{
     std::vector<std::string> ports = list_serial_ports(serial_full_prefix);
     if (ports.empty())
     {
         throw std::runtime_error("No serial ports found for prefix: " + serial_full_prefix);
     }
+
 
     std::vector<std::string> com_board_ports;
     for (const std::string& port : ports) 
@@ -31,6 +33,7 @@ canport::canport(uint8_t portx, std::string serial_full_prefix)
         }
     }
 
+
     if (portx > 0 && com_board_ports.size() < portx)
     {
         throw std::runtime_error(
@@ -40,8 +43,26 @@ canport::canport(uint8_t portx, std::string serial_full_prefix)
     }
 
     const std::string port_name = com_board_ports[portx - 1].c_str();
-
     std::cout << "port_name: " << port_name << std::endl;
+
+    ser_dev.setPort(port_name.c_str());
+    ser_dev.setBaudrate(4000000);
+    serial::Timeout timeout = serial::Timeout::simpleTimeout(1000);
+    ser_dev.setTimeout(timeout);
+
+    try
+    {
+        ser_dev.open();
+    }
+    catch(const std::exception& e)
+    {
+        throw std::runtime_error("serial open err!!!");
+    }
+    
+    if (ser_dev.isOpen())
+    {
+        std::cout << "Serial Port " << port_name << " initialized" << std::endl;
+    }
 }
 
 
@@ -59,18 +80,9 @@ int canport::serial_pid_vid(const char *name)
         } 
         else 
         {
-            if (pid == 0xFFFF)
+            if (pid == 0xFFFF && vid == 0xCAF1)
             {
-                switch (vid)
-                {
-                case (0xCAF1):
-                case (0xCAE1):
-                    r = 1;
-                    break;
-                default:
-                    r = -3;
-                    break;
-                }
+                r = 1;
             }
             else
             {
@@ -125,3 +137,109 @@ std::vector<std::string> canport::list_serial_ports(const std::string& full_pref
 }
 
 
+// void canport::get_board_version()
+// {
+//     if (cdc_tx_message.head.s.cmd != MODE_SET_NUM)
+//     {
+//         cdc_tx_message.head.s.head = 0XF7;
+//         cdc_tx_message.head.s.cmd = MODE_SET_NUM;
+//         cdc_tx_message.head.s.len = 2;
+//         memset(&cdc_tx_message.data, 0, cdc_tx_message.head.s.len);
+//     }
+
+//     cdc_tx_message.data.data[0] = 10;
+
+//     uint16_t t = 0;
+//     uint16_t max_num = 1000;
+//     while (t++ < max_num)
+//     {
+//         send(&cdc_tx_message);
+//         std::this_thread::sleep_for(std::chrono::milliseconds(20));
+//         if (port_version >= COMBINE_VERSION(3, 0, 0))
+//         {
+//             // printf("\033[1;32m ttt %d\033[0m", t);
+//             break;
+//         }
+//     }
+// }
+
+
+void canport::send(cdc_tr_message_s *cdc_tx_message)
+{
+    cdc_tx_message->head.s.crc8 = crc8_ccitt(&(cdc_tx_message->head.data[1]), 3, 0xFF);
+    cdc_tx_message->head.s.crc16 = crc16_ccitt(0xFFFF, &(cdc_tx_message->data.data[0]), cdc_tx_message->head.s.len);
+
+    // uint8_t *byte_ptr = (uint8_t *)&cdc_tr_message->head.s.head;
+    // printf("send:\n");
+    // for (size_t i = 0; i < cdc_tr_message->head.s.len + 7; i++)
+    // {
+    //     printf("0x%.2X ", byte_ptr[i]);
+    // }
+    // printf("\n\n");
+
+    try
+    {
+        if(ser_dev.isOpen())
+        {
+            ser_dev.write((const uint8_t *)&cdc_tx_message->head.s.head, cdc_tx_message->head.s.len + sizeof(cdc_tr_message_head_s));
+        }
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        ser_dev.close();
+    }
+}
+
+
+void canport::recv()
+{
+    uint8_t crc8 = 0;
+    uint8_t crc16 = 0;
+    cdc_tr_message_data_s cdc_rx_data = {0};
+
+    while(ser_dev.isOpen())
+    {
+        cdc_tr_message_head_data_s cdc_rx_head = {0};
+        try
+        {  
+            ser_dev.read(&(cdc_rx_head.head), 1);
+            if (cdc_rx_head.head != 0xF7)
+            {
+                continue;
+            }
+
+            ser_dev.read(&(cdc_rx_head.cmd), 4);
+            if (cdc_rx_head.crc8 != crc8_ccitt((uint8_t *)&(cdc_rx_head.cmd), 3, 0xFF))
+            {
+                continue;
+            }
+
+            ser_dev.read((uint8_t *)&crc16, 2);
+            ser_dev.read((uint8_t *)&cdc_rx_data, cdc_rx_head.len);
+            if (crc16 != crc16_ccitt(0xFFFF, (const uint8_t *)&cdc_rx_data, cdc_rx_head.len))
+            {
+                continue;
+            }
+
+            switch (cdc_rx_head.cmd)
+            {
+            case MODE_SET_NUM:
+                {
+                    board_version.major = cdc_rx_data.data[2];
+                    board_version.minor = cdc_rx_data.data[3];
+                    board_version.patch = cdc_rx_head.len == 4 ? 0 : cdc_rx_data.data[4];
+                }
+                break;
+            
+            default:
+                break;
+            }
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << "\033[1;31m" << e.what() << "\033[0m" << '\n';
+            ser_dev.close();
+        }
+    }
+}

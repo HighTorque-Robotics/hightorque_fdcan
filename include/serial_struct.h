@@ -43,13 +43,12 @@
 
 
 #pragma pack(1)
-typedef struct 
+typedef struct
 {
-    uint8_t id;
-    uint8_t major;
-    uint8_t minor; 
-    uint8_t patch;
-} cdc_rx_motor_version_s;
+    uint8_t major : 4;
+    uint8_t minor : 8;
+    uint8_t patch : 4;
+} version_s, *p_version_s;
 
 typedef struct 
 {
