@@ -33,7 +33,7 @@
 #define  MODE_FDCAN_MOTOR_STATE     0X0F  // 通讯板 FDCAN 报错码 + 电机状态
 #define  MODE_TQE_ADJS_FLAG         0X10  // 电机内部力矩修正（电机固件 v4.6.0 开始支持）
 #define  MODE_FDCAN_MOTOR_STATE2    0X11  // 通讯板 FDCAN 报错码 + 电机状态2(带模式和错误码)
-#define  MODE_FDCAN_TRAN            0X12  // CAN/FDCAN 透传（原始数据收发）
+#define  MODE_FDCAN_PASS            0X12  // CAN/FDCAN 透传（原始数据收发）
 
 
 #define COMBINE_VERSION(major, minor, patch) (((major) << 12) | ((minor) << 4) | (patch))
@@ -86,17 +86,18 @@ typedef struct
             uint8_t brs_flag : 1;    // 比特率切换使能：1-数据段使用高速率，0-全帧同速率
             uint8_t fdcan_flag : 1;  // 帧格式：1-fdcan，0-can
             uint8_t id_flag: 1;      // 标识符类型：1-拓展帧，0-标准帧
-            uint8_t : 5;             // 占位，暂时无作用，必须为 0
+            uint8_t send_flag: 1;    // 发送标志，只在初始化的时候需要置0，其他时刻必须置1
+            uint8_t : 4;             // 占位，暂时无作用，必须为 0
         };
         uint8_t data;
     };
-} cdc_tr_fdcan_tran_config_s;
+} cdc_tr_fdcan_pass_config_s;
 
 
 typedef struct
 {
     uint32_t id;
-    cdc_tr_fdcan_tran_config_s config;
+    cdc_tr_fdcan_pass_config_s config;
     uint8_t len;
     uint8_t data[64];
 } cdc_tr_fdcan_tran_s;

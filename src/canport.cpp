@@ -13,17 +13,25 @@ canport::canport(uint8_t portx, std::string serial_full_prefix)
 
     serial_init(portx, serial_full_prefix);
     get_board_version();
-
+    if (board_version.data16 < COMBINE_VERSION(4, 8, 8))
+    {
+        throw std::runtime_error("The communication board version is too low!!!");
+    }
 }
 
 canport::~canport()
 {
+    printf("111\n");
     ser_dev.close();
 
+    printf("222\n");
     if (ser_recv_thread.joinable())
     {
+        printf("333\n");
         ser_recv_thread.join();
     }
+
+    printf("123\n");
 }
 
 
@@ -59,7 +67,7 @@ void canport::serial_init(uint8_t portx, std::string serial_full_prefix)
 
     ser_dev.setPort(port_name.c_str());
     ser_dev.setBaudrate(4000000);
-    serial::Timeout timeout = serial::Timeout::simpleTimeout(1000);
+    serial::Timeout timeout = serial::Timeout::simpleTimeout(100);
     ser_dev.setTimeout(timeout);
 
     try
@@ -104,7 +112,6 @@ int canport::serial_pid_vid(const char *name)
             }
         }
 
-        // 关闭端口
         sp_free_port(port);
     }
     catch(const std::exception& e)
@@ -165,7 +172,7 @@ void canport::get_board_version()
 
     for (int i = 0; i < 50; i++)
     {
-        send(&cdc_tx_message);
+        send();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         if (board_version.data16 >= COMBINE_VERSION(3, 0, 0))
         {
@@ -178,14 +185,126 @@ void canport::get_board_version()
 }
 
 
-void canport::send(cdc_tr_message_s *cdc_tx_message)
+uint8_t canport::fdcan_tran_len(uint8_t size)
 {
-    cdc_tx_message->head.s.crc8 = crc8_ccitt(&(cdc_tx_message->head.data[1]), 3, 0xFF);
-    cdc_tx_message->head.s.crc16 = crc16_ccitt(0xFFFF, &(cdc_tx_message->data.data[0]), cdc_tx_message->head.s.len);
+    uint8_t data_len = 0;
 
-    // uint8_t *byte_ptr = (uint8_t *)&cdc_tr_message->head.s.head;
+    if (fdcan_pass_config.fdcan_flag == 0 && size > 8)
+    {
+        return 8;
+    }
+
+    if (size <= 8)
+    {
+        data_len = size;
+    }
+    else if (size <= 12)
+    {
+        data_len = 12;
+    }
+    else if (size <= 16)
+    {
+        data_len = 16;
+    }
+    else if (size <= 20)
+    {
+        data_len = 20;
+    }
+    else if (size <= 24)
+    {
+        data_len = 24;
+    }
+    else if (size <= 32)
+    {
+        data_len = 32;
+    }
+    else if (size <= 48)
+    {
+        data_len = 48;
+    }
+    else 
+    {
+        data_len = 64;
+    }
+    
+    return data_len;
+}
+
+
+void canport::fdcan_pass_init()
+{
+    if (cdc_tx_message.head.s.cmd != MODE_FDCAN_PASS)
+    {
+        cdc_tx_message.head.s.head = 0XF7;
+        cdc_tx_message.head.s.cmd = MODE_FDCAN_PASS;
+        memset(&cdc_tx_message.data, 0, CDC_TR_MESSAGE_DATA_LEN);
+    }
+
+    fdcan_pass_config.brs_flag = 1;
+    fdcan_pass_config.fdcan_flag = 1;
+    fdcan_pass_config.id_flag = 1;
+    fdcan_pass_config.send_flag = 0;
+    
+    cdc_tx_message.head.s.len = sizeof(cdc_tr_fdcan_pass_config_s) + 5;
+
+    send();
+    send();
+    send();
+
+    fdcan_pass_config.send_flag = 1;
+}
+
+
+void canport::fdcan_tran_config(bool fdcan_flag, bool brs_flag, bool ext_flag)
+{
+    fdcan_pass_config.data = 0;
+    fdcan_pass_config.fdcan_flag = fdcan_flag;
+    fdcan_pass_config.brs_flag = brs_flag;
+    fdcan_pass_config.id_flag = ext_flag;
+    fdcan_pass_config.send_flag = 1;
+    cdc_tx_message.head.s.len = 0;
+}
+
+
+uint8_t canport::fdcan_tran_data(uint32_t id, uint8_t *data, uint8_t len)
+{
+    const uint8_t fdcan_data_len = fdcan_tran_len(len);
+    const uint8_t fdcan_tran_config_len = sizeof(id) + sizeof(cdc_tr_fdcan_pass_config_s) + sizeof(len);
+    if (cdc_tx_message.head.s.len + fdcan_tran_config_len > CDC_TR_MESSAGE_DATA_LEN - sizeof(cdc_tr_message_head_s))
+    {
+        return 1;
+    }
+
+    if (cdc_tx_message.head.s.cmd != MODE_FDCAN_PASS)
+    {
+        cdc_tx_message.head.s.head = 0XF7;
+        cdc_tx_message.head.s.cmd = MODE_FDCAN_PASS;
+        cdc_tx_message.head.s.len = 0;
+        
+        memset(&cdc_tx_message.data, 0, CDC_TR_MESSAGE_DATA_LEN);
+    }
+
+    cdc_tr_fdcan_tran_s* const p_fdcan_tran = (cdc_tr_fdcan_tran_s *)&cdc_tx_message.data.data[cdc_tx_message.head.s.len];
+    cdc_tx_message.head.s.len += fdcan_data_len + fdcan_tran_config_len;
+
+    p_fdcan_tran->id = id;
+    p_fdcan_tran->config = fdcan_pass_config;
+    p_fdcan_tran->len = fdcan_data_len;
+    memcpy(p_fdcan_tran->data, data, fdcan_data_len);
+
+    // printf("id = %d, len = %d\r\n", id, cdc_tr_message.head.s.len);
+
+    return 0;
+}
+
+void canport::send()
+{
+    cdc_tx_message.head.s.crc8 = crc8_ccitt(&(cdc_tx_message.head.data[1]), 3, 0xFF);
+    cdc_tx_message.head.s.crc16 = crc16_ccitt(0xFFFF, &(cdc_tx_message.data.data[0]), cdc_tx_message.head.s.len);
+
+    // uint8_t *byte_ptr = (uint8_t *)&cdc_tr_message.head.s.head;
     // printf("send:\n");
-    // for (size_t i = 0; i < cdc_tr_message->head.s.len + 7; i++)
+    // for (size_t i = 0; i < cdc_tr_message.head.s.len + 7; i++)
     // {
     //     printf("0x%.2X ", byte_ptr[i]);
     // }
@@ -195,7 +314,7 @@ void canport::send(cdc_tr_message_s *cdc_tx_message)
     {
         if(ser_dev.isOpen())
         {
-            ser_dev.write((const uint8_t *)&cdc_tx_message->head.s.head, cdc_tx_message->head.s.len + sizeof(cdc_tr_message_head_s));
+            ser_dev.write((const uint8_t *)&cdc_tx_message.head.s.head, cdc_tx_message.head.s.len + sizeof(cdc_tr_message_head_s));
         }
     }
     catch(const std::exception& e)
@@ -260,7 +379,7 @@ void canport::recv()
         }
         catch(const std::exception& e)
         {
-            std::cerr << "\033[1;31m" << e.what() << "\033[0m" << '\n';
+            // std::cerr << "\033[1;31m" << e.what() << "\033[0m" << '\n';
             ser_dev.close();
         }
     }
