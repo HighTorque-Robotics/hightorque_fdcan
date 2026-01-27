@@ -6,10 +6,9 @@
 #include "crc.h"
 
 
-#define ROS_INFO_G(format, ...) ROS_INFO("\033[1;32m" format "\033[0m", ##__VA_ARGS__)
-#define ROS_INFO(format, ...)  printf(format "\n", ##__VA_ARGS__)
-#define ROS_ERROR(format, ...) printf("\033[1;31m" format "\033[0m\n", ##__VA_ARGS__)
-#define ROS_DEBUG_STREAM(x)
+#define PRINT_INFO_G(format, ...) printf("\033[1;32m" format "\033[0m\n", ##__VA_ARGS__)
+#define PRINT_INFO(format, ...)   printf(format "\n", ##__VA_ARGS__)
+#define PRINT_ERROR(format, ...)  printf("\033[1;31m" format "\033[0m\n", ##__VA_ARGS__)
 
 
 #define  CDC_TR_MESSAGE_DATA_LEN    512

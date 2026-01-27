@@ -14,6 +14,7 @@ void signalHandler(int signum)
 
 int main()
 {
+    std::signal(SIGINT, signalHandler);
     canport port1(1);
 
     uint8_t tdata[64] = {0};
@@ -22,19 +23,18 @@ int main()
         tdata[i] = i;
     }
 
+    uint32_t id = 0;
+    port1.fdcan_tran_config(true, true, true);
     while (!exitFlag.load())
     {
-        static uint32_t id = 0;
-        port1.fdcan_tran_config(false, false, true);
-
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < 5; i++)
         {
             if (port1.fdcan_tran_data(i, tdata, sizeof(tdata)))
             {
                 break;
             }
         }
-        port1.send();
+        port1.fdcan_send();
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }

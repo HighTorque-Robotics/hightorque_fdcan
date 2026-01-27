@@ -14,6 +14,7 @@ include_directories(include)
 set(SOURCE_FILES
     src/canport.cpp
     src/crc.cpp
+    src/fdcan_queue.cpp
 )
 
 link_directories(${CMAKE_SOURCE_DIR}/lib)

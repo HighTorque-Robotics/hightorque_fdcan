@@ -10,6 +10,9 @@
 canport::canport(uint8_t portx, std::string serial_full_prefix)
 {
     board_version.data16 = 0;
+    version.data16 = COMBINE_VERSION(0, 0, 0);
+
+    PRINT_INFO_G("FDCAN_PASS version: %d.%d.%d", version.major, version.minor, version.patch);
 
     serial_init(portx, serial_full_prefix);
     get_board_version();
@@ -17,21 +20,129 @@ canport::canport(uint8_t portx, std::string serial_full_prefix)
     {
         throw std::runtime_error("The communication board version is too low!!!");
     }
+
+    fdcan_pass_init();
 }
 
 canport::~canport()
 {
-    printf("111\n");
+    printf("~canport\n");
     ser_dev.close();
 
-    printf("222\n");
     if (ser_recv_thread.joinable())
     {
-        printf("333\n");
         ser_recv_thread.join();
     }
+}
 
-    printf("123\n");
+
+uint8_t canport::fdcan_tran_len(uint8_t size)
+{
+    uint8_t data_len = 0;
+
+    if (fdcan_pass_config.fdcan_flag == 0 && size > 8)
+    {
+        return 8;
+    }
+
+    if (size <= 8)
+    {
+        data_len = size;
+    }
+    else if (size <= 12)
+    {
+        data_len = 12;
+    }
+    else if (size <= 16)
+    {
+        data_len = 16;
+    }
+    else if (size <= 20)
+    {
+        data_len = 20;
+    }
+    else if (size <= 24)
+    {
+        data_len = 24;
+    }
+    else if (size <= 32)
+    {
+        data_len = 32;
+    }
+    else if (size <= 48)
+    {
+        data_len = 48;
+    }
+    else 
+    {
+        data_len = 64;
+    }
+    
+    return data_len;
+}
+
+
+void canport::fdcan_pass_init()
+{
+    if (cdc_tx_message.head.s.cmd != MODE_FDCAN_PASS)
+    {
+        cdc_tx_message.head.s.head = 0XF7;
+        cdc_tx_message.head.s.cmd = MODE_FDCAN_PASS;
+        memset(&cdc_tx_message.data, 0, CDC_TR_MESSAGE_DATA_LEN);
+    }
+
+    fdcan_pass_config.data = 0;
+    fdcan_pass_config.brs_flag = 1;
+    fdcan_pass_config.fdcan_flag = 1;
+    fdcan_pass_config.id_flag = 1;
+    fdcan_pass_config.send_flag = 0;
+    
+    cdc_tx_message.head.s.len = sizeof(cdc_tr_fdcan_pass_config_s) + 5;
+
+    send();
+
+    fdcan_pass_config.send_flag = 1;
+}
+
+
+void canport::fdcan_tran_config(bool fdcan_flag, bool brs_flag, bool ext_flag)
+{
+    fdcan_pass_config.data = 0;
+    fdcan_pass_config.fdcan_flag = fdcan_flag;
+    fdcan_pass_config.brs_flag = brs_flag;
+    fdcan_pass_config.id_flag = ext_flag;
+    fdcan_pass_config.send_flag = 1;
+    cdc_tx_message.head.s.len = 0;
+}
+
+
+uint8_t canport::fdcan_tran_data(uint32_t id, uint8_t *data, uint8_t len)
+{
+    const uint8_t fdcan_data_len = fdcan_tran_len(len);
+    const uint8_t fdcan_tran_config_len = sizeof(id) + sizeof(cdc_tr_fdcan_pass_config_s) + sizeof(len);
+    if (cdc_tx_message.head.s.len + fdcan_tran_config_len > CDC_TR_MESSAGE_DATA_LEN - sizeof(cdc_tr_message_head_s))
+    {
+        return 1;
+    }
+
+    if (cdc_tx_message.head.s.cmd != MODE_FDCAN_PASS)
+    {
+        cdc_tx_message.head.s.head = 0XF7;
+        cdc_tx_message.head.s.cmd = MODE_FDCAN_PASS;
+        cdc_tx_message.head.s.len = 0;
+        
+        memset(&cdc_tx_message.data, 0, CDC_TR_MESSAGE_DATA_LEN);
+    }
+
+    cdc_tr_fdcan_tran_s* const p_fdcan_tran = (cdc_tr_fdcan_tran_s *)&cdc_tx_message.data.data[cdc_tx_message.head.s.len];
+    cdc_tx_message.head.s.len += fdcan_data_len + fdcan_tran_config_len;
+
+    p_fdcan_tran->id = id;
+    p_fdcan_tran->config = fdcan_pass_config;
+    p_fdcan_tran->len = fdcan_data_len;
+    memcpy(p_fdcan_tran->data, data, fdcan_data_len);
+
+    return 0;
 }
 
 
@@ -185,126 +296,71 @@ void canport::get_board_version()
 }
 
 
-uint8_t canport::fdcan_tran_len(uint8_t size)
+void canport::fdcan_send()
 {
-    uint8_t data_len = 0;
-
-    if (fdcan_pass_config.fdcan_flag == 0 && size > 8)
-    {
-        return 8;
-    }
-
-    if (size <= 8)
-    {
-        data_len = size;
-    }
-    else if (size <= 12)
-    {
-        data_len = 12;
-    }
-    else if (size <= 16)
-    {
-        data_len = 16;
-    }
-    else if (size <= 20)
-    {
-        data_len = 20;
-    }
-    else if (size <= 24)
-    {
-        data_len = 24;
-    }
-    else if (size <= 32)
-    {
-        data_len = 32;
-    }
-    else if (size <= 48)
-    {
-        data_len = 48;
-    }
-    else 
-    {
-        data_len = 64;
-    }
-    
-    return data_len;
-}
-
-
-void canport::fdcan_pass_init()
-{
-    if (cdc_tx_message.head.s.cmd != MODE_FDCAN_PASS)
-    {
-        cdc_tx_message.head.s.head = 0XF7;
-        cdc_tx_message.head.s.cmd = MODE_FDCAN_PASS;
-        memset(&cdc_tx_message.data, 0, CDC_TR_MESSAGE_DATA_LEN);
-    }
-
-    fdcan_pass_config.brs_flag = 1;
-    fdcan_pass_config.fdcan_flag = 1;
-    fdcan_pass_config.id_flag = 1;
-    fdcan_pass_config.send_flag = 0;
-    
-    cdc_tx_message.head.s.len = sizeof(cdc_tr_fdcan_pass_config_s) + 5;
-
     send();
-    send();
-    send();
-
-    fdcan_pass_config.send_flag = 1;
-}
-
-
-void canport::fdcan_tran_config(bool fdcan_flag, bool brs_flag, bool ext_flag)
-{
-    fdcan_pass_config.data = 0;
-    fdcan_pass_config.fdcan_flag = fdcan_flag;
-    fdcan_pass_config.brs_flag = brs_flag;
-    fdcan_pass_config.id_flag = ext_flag;
-    fdcan_pass_config.send_flag = 1;
     cdc_tx_message.head.s.len = 0;
 }
 
 
-uint8_t canport::fdcan_tran_data(uint32_t id, uint8_t *data, uint8_t len)
+void canport::fdcan_pass_process(uint8_t *data, uint16_t len)
 {
-    const uint8_t fdcan_data_len = fdcan_tran_len(len);
-    const uint8_t fdcan_tran_config_len = sizeof(id) + sizeof(cdc_tr_fdcan_pass_config_s) + sizeof(len);
-    if (cdc_tx_message.head.s.len + fdcan_tran_config_len > CDC_TR_MESSAGE_DATA_LEN - sizeof(cdc_tr_message_head_s))
+    const uint8_t fdcan_tran_config_len = 5 + sizeof(cdc_tr_fdcan_pass_config_s);
+    uint32_t index = 0;
+
+    while(len >= fdcan_tran_config_len + index)
     {
-        return 1;
+        cdc_tr_fdcan_tran_s const * p_tran = (cdc_tr_fdcan_tran_s *)&data[index];
+        cdc_tr_fdcan_tran_s fdcan_tran;
+
+        fdcan_tran.config = p_tran->config;
+        fdcan_tran.id = p_tran->id;
+        fdcan_tran.len = p_tran->len;
+
+        memcpy(fdcan_tran.data, p_tran->data, p_tran->len);
+        fdcan_queue_rx.push(fdcan_tran);
+        index += p_tran->len + fdcan_tran_config_len;
     }
 
-    if (cdc_tx_message.head.s.cmd != MODE_FDCAN_PASS)
+    
+#if 1
+    const auto now = std::chrono::system_clock::now();
+    const auto now_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() / 1000.0;
+    static double time_old = 0;
+
+    printf("-----------process len = %d-------------------\n", len);
+    printf("time_new - time_old = %fs\r\n", now_time - time_old);
+    time_old = now_time;
+
+    cdc_tr_fdcan_tran_s fdcan_tran_rx;
+
+    while (fdcan_queue_rx.pop(fdcan_tran_rx))
     {
-        cdc_tx_message.head.s.head = 0XF7;
-        cdc_tx_message.head.s.cmd = MODE_FDCAN_PASS;
-        cdc_tx_message.head.s.len = 0;
-        
-        memset(&cdc_tx_message.data, 0, CDC_TR_MESSAGE_DATA_LEN);
+        printf("id = %X, len = %d\n", fdcan_tran_rx.id, fdcan_tran_rx.len);
+        printf("fdcan = %d, brs = %d, id = %d\n", fdcan_tran_rx.config.fdcan_flag, fdcan_tran_rx.config.brs_flag, fdcan_tran_rx.config.id_flag);
+
+        for (int i = 0; i < fdcan_tran_rx.len; i++)
+        {
+            printf("%2X ", fdcan_tran_rx.data[i]);
+            if (i == 31)
+            {
+                printf("\n");
+            }
+        }
+        printf("\n\n\n");
     }
-
-    cdc_tr_fdcan_tran_s* const p_fdcan_tran = (cdc_tr_fdcan_tran_s *)&cdc_tx_message.data.data[cdc_tx_message.head.s.len];
-    cdc_tx_message.head.s.len += fdcan_data_len + fdcan_tran_config_len;
-
-    p_fdcan_tran->id = id;
-    p_fdcan_tran->config = fdcan_pass_config;
-    p_fdcan_tran->len = fdcan_data_len;
-    memcpy(p_fdcan_tran->data, data, fdcan_data_len);
-
-    // printf("id = %d, len = %d\r\n", id, cdc_tr_message.head.s.len);
-
-    return 0;
+#endif
 }
+
 
 void canport::send()
 {
-    cdc_tx_message.head.s.crc8 = crc8_ccitt(&(cdc_tx_message.head.data[1]), 3, 0xFF);
-    cdc_tx_message.head.s.crc16 = crc16_ccitt(0xFFFF, &(cdc_tx_message.data.data[0]), cdc_tx_message.head.s.len);
+    cdc_tx_message.head.s.crc8 = crc8_ccitt(&(cdc_tx_message.head.data[1]), 3);
+    cdc_tx_message.head.s.crc16 = crc16_ccitt(&(cdc_tx_message.data.data[0]), cdc_tx_message.head.s.len);
 
-    // uint8_t *byte_ptr = (uint8_t *)&cdc_tr_message.head.s.head;
+    // uint8_t *byte_ptr = (uint8_t *)&cdc_tx_message.head.s.head;
     // printf("send:\n");
-    // for (size_t i = 0; i < cdc_tr_message.head.s.len + 7; i++)
+    // for (size_t i = 0; i < cdc_tx_message.head.s.len + 7; i++)
     // {
     //     printf("0x%.2X ", byte_ptr[i]);
     // }
@@ -343,7 +399,7 @@ void canport::recv()
             }
 
             ser_dev.read(&(cdc_rx_head.cmd), 4);
-            if (cdc_rx_head.crc8 != crc8_ccitt((uint8_t *)&(cdc_rx_head.cmd), 3, 0xFF))
+            if (cdc_rx_head.crc8 != crc8_ccitt((uint8_t *)&(cdc_rx_head.cmd), 3))
             {
                 continue;
             }
@@ -351,7 +407,7 @@ void canport::recv()
             ser_dev.read((uint8_t *)&crc16, 2);
             ser_dev.read((uint8_t *)&cdc_rx_data, cdc_rx_head.len);
 
-            if (crc16 != crc16_ccitt(0xFFFF, (const uint8_t *)&cdc_rx_data.data, cdc_rx_head.len))
+            if (crc16 != crc16_ccitt((const uint8_t *)&cdc_rx_data.data, cdc_rx_head.len))
             {
                 continue;
             }
@@ -372,7 +428,11 @@ void canport::recv()
                     board_version.patch = cdc_rx_head.len == 4 ? 0 : cdc_rx_data.data[4];
                 }
                 break;
-            
+            case MODE_FDCAN_PASS:
+                {
+                    fdcan_pass_process(cdc_rx_data.data, cdc_rx_head.len);
+                }
+                break;
             default:
                 break;
             }

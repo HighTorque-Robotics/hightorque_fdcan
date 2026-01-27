@@ -62,14 +62,17 @@ uint16_t const crc16_table[256] =
 
 
 
-uint8_t crc8_ccitt(unsigned char *pchMessage, unsigned int dwLength, unsigned char ucCRC8)
+uint8_t crc8_ccitt(uint8_t const *data, uint32_t len)
 {
-    while (dwLength--)
+    uint8_t crc8 = 0xFF;
+
+    while (len--)
     {
-        const uint8_t ucIndex = ucCRC8 ^ (*pchMessage++);
-        ucCRC8 = crc8_table[ucIndex];
+        const uint8_t index = crc8 ^ (*data++);
+        crc8 = crc8_table[index];
     }
-    return (ucCRC8);
+
+    return crc8;
 }
 
 
@@ -79,9 +82,11 @@ static uint16_t crc16_ccitt_byte(uint16_t crc, const uint8_t c)
 }
 
 
-uint16_t crc16_ccitt(uint16_t crc, uint8_t const *buffer, uint16_t len)
+uint16_t crc16_ccitt(uint8_t const *buffer, uint16_t len)
 {
+    uint16_t crc16 = 0xFFFF;
+
 	while (len--)
-		crc = crc16_ccitt_byte(crc, *buffer++);
-	return crc;
+		crc16 = crc16_ccitt_byte(crc16, *buffer++);
+	return crc16;
 }
