@@ -99,7 +99,7 @@ typedef struct
     cdc_tr_fdcan_pass_config_s config;
     uint8_t len;
     uint8_t data[64];
-} cdc_tr_fdcan_tran_s;
+} cdc_tr_fdcan_pass_s;
 
 
 typedef struct

@@ -36,11 +36,11 @@ canport::~canport()
 }
 
 
-uint8_t canport::fdcan_tran_len(uint8_t size)
+uint8_t canport::fdcan_pass_len(uint8_t size)
 {
     uint8_t data_len = 0;
 
-    if (fdcan_pass_config.fdcan_flag == 0 && size > 8)
+    if (fdcan_pass_config_rx.fdcan_flag == 0 && size > 8)
     {
         return 8;
     }
@@ -91,36 +91,36 @@ void canport::fdcan_pass_init()
         memset(&cdc_tx_message.data, 0, CDC_TR_MESSAGE_DATA_LEN);
     }
 
-    fdcan_pass_config.data = 0;
-    fdcan_pass_config.brs_flag = 1;
-    fdcan_pass_config.fdcan_flag = 1;
-    fdcan_pass_config.id_flag = 1;
-    fdcan_pass_config.send_flag = 0;
+    fdcan_pass_config_rx.data = 0;
+    fdcan_pass_config_rx.brs_flag = 1;
+    fdcan_pass_config_rx.fdcan_flag = 1;
+    fdcan_pass_config_rx.id_flag = 1;
+    fdcan_pass_config_rx.send_flag = 0;
     
     cdc_tx_message.head.s.len = sizeof(cdc_tr_fdcan_pass_config_s) + 5;
 
     send();
 
-    fdcan_pass_config.send_flag = 1;
+    fdcan_pass_config_rx.send_flag = 1;
 }
 
 
-void canport::fdcan_tran_config(bool fdcan_flag, bool brs_flag, bool ext_flag)
+void canport::fdcan_pass_config(bool fdcan_flag, bool brs_flag, bool ext_flag)
 {
-    fdcan_pass_config.data = 0;
-    fdcan_pass_config.fdcan_flag = fdcan_flag;
-    fdcan_pass_config.brs_flag = brs_flag;
-    fdcan_pass_config.id_flag = ext_flag;
-    fdcan_pass_config.send_flag = 1;
+    fdcan_pass_config_rx.data = 0;
+    fdcan_pass_config_rx.fdcan_flag = fdcan_flag;
+    fdcan_pass_config_rx.brs_flag = brs_flag;
+    fdcan_pass_config_rx.id_flag = ext_flag;
+    fdcan_pass_config_rx.send_flag = 1;
     cdc_tx_message.head.s.len = 0;
 }
 
 
-uint8_t canport::fdcan_tran_data(uint32_t id, uint8_t *data, uint8_t len)
+uint8_t canport::fdcan_pass_data(uint32_t id, uint8_t *data, uint8_t len)
 {
-    const uint8_t fdcan_data_len = fdcan_tran_len(len);
-    const uint8_t fdcan_tran_config_len = sizeof(id) + sizeof(cdc_tr_fdcan_pass_config_s) + sizeof(len);
-    if (cdc_tx_message.head.s.len + fdcan_tran_config_len > CDC_TR_MESSAGE_DATA_LEN - sizeof(cdc_tr_message_head_s))
+    const uint8_t fdcan_data_len = fdcan_pass_len(len);
+    const uint8_t fdcan_pass_config_len = sizeof(id) + sizeof(cdc_tr_fdcan_pass_config_s) + sizeof(len);
+    if (cdc_tx_message.head.s.len + fdcan_pass_config_len > CDC_TR_MESSAGE_DATA_LEN - sizeof(cdc_tr_message_head_s))
     {
         return 1;
     }
@@ -134,15 +134,38 @@ uint8_t canport::fdcan_tran_data(uint32_t id, uint8_t *data, uint8_t len)
         memset(&cdc_tx_message.data, 0, CDC_TR_MESSAGE_DATA_LEN);
     }
 
-    cdc_tr_fdcan_tran_s* const p_fdcan_tran = (cdc_tr_fdcan_tran_s *)&cdc_tx_message.data.data[cdc_tx_message.head.s.len];
-    cdc_tx_message.head.s.len += fdcan_data_len + fdcan_tran_config_len;
+    cdc_tr_fdcan_pass_s* const p_fdcan_pass = (cdc_tr_fdcan_pass_s *)&cdc_tx_message.data.data[cdc_tx_message.head.s.len];
+    cdc_tx_message.head.s.len += fdcan_data_len + fdcan_pass_config_len;
 
-    p_fdcan_tran->id = id;
-    p_fdcan_tran->config = fdcan_pass_config;
-    p_fdcan_tran->len = fdcan_data_len;
-    memcpy(p_fdcan_tran->data, data, fdcan_data_len);
+    p_fdcan_pass->id = id;
+    p_fdcan_pass->config = fdcan_pass_config_rx;
+    p_fdcan_pass->len = fdcan_data_len;
+    memcpy(p_fdcan_pass->data, data, fdcan_data_len);
 
     return 0;
+}
+
+
+bool canport::fdcan_queue_pop(uint32_t *id, uint8_t *data, uint8_t *len, cdc_tr_fdcan_pass_config_s *config)
+{
+    cdc_tr_fdcan_pass_s fdcan_pass;
+    
+    const bool r = fdcan_queue_rx.pop(fdcan_pass);
+    if (r == true)
+    {
+        *id = fdcan_pass.id;
+        *len = fdcan_pass.len;
+        config->data = fdcan_pass.config.data;
+        memcpy(data, fdcan_pass.data, fdcan_pass.len);
+    }
+
+    return r;
+}
+
+
+bool canport::fdcan_queue_pop(cdc_tr_fdcan_pass_s *fdcan_pass)
+{
+    return fdcan_queue_rx.pop(*fdcan_pass);
 }
 
 
@@ -305,25 +328,25 @@ void canport::fdcan_send()
 
 void canport::fdcan_pass_process(uint8_t *data, uint16_t len)
 {
-    const uint8_t fdcan_tran_config_len = 5 + sizeof(cdc_tr_fdcan_pass_config_s);
+    const uint8_t fdcan_pass_config_len = 5 + sizeof(cdc_tr_fdcan_pass_config_s);
     uint32_t index = 0;
 
-    while(len >= fdcan_tran_config_len + index)
+    while(len >= fdcan_pass_config_len + index)
     {
-        cdc_tr_fdcan_tran_s const * p_tran = (cdc_tr_fdcan_tran_s *)&data[index];
-        cdc_tr_fdcan_tran_s fdcan_tran;
+        cdc_tr_fdcan_pass_s const * p_tran = (cdc_tr_fdcan_pass_s *)&data[index];
+        cdc_tr_fdcan_pass_s fdcan_pass;
 
-        fdcan_tran.config = p_tran->config;
-        fdcan_tran.id = p_tran->id;
-        fdcan_tran.len = p_tran->len;
+        fdcan_pass.config = p_tran->config;
+        fdcan_pass.id = p_tran->id;
+        fdcan_pass.len = p_tran->len;
 
-        memcpy(fdcan_tran.data, p_tran->data, p_tran->len);
-        fdcan_queue_rx.push(fdcan_tran);
-        index += p_tran->len + fdcan_tran_config_len;
+        memcpy(fdcan_pass.data, p_tran->data, p_tran->len);
+        fdcan_queue_rx.push(fdcan_pass);
+        index += p_tran->len + fdcan_pass_config_len;
     }
 
     
-#if 1
+#if 0
     const auto now = std::chrono::system_clock::now();
     const auto now_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() / 1000.0;
     static double time_old = 0;
@@ -332,16 +355,16 @@ void canport::fdcan_pass_process(uint8_t *data, uint16_t len)
     printf("time_new - time_old = %fs\r\n", now_time - time_old);
     time_old = now_time;
 
-    cdc_tr_fdcan_tran_s fdcan_tran_rx;
+    cdc_tr_fdcan_pass_s fdcan_pass_rx;
 
-    while (fdcan_queue_rx.pop(fdcan_tran_rx))
+    while (fdcan_queue_rx.pop(fdcan_pass_rx))
     {
-        printf("id = %X, len = %d\n", fdcan_tran_rx.id, fdcan_tran_rx.len);
-        printf("fdcan = %d, brs = %d, id = %d\n", fdcan_tran_rx.config.fdcan_flag, fdcan_tran_rx.config.brs_flag, fdcan_tran_rx.config.id_flag);
+        printf("id = %X, len = %d\n", fdcan_pass_rx.id, fdcan_pass_rx.len);
+        printf("fdcan = %d, brs = %d, id = %d\n", fdcan_pass_rx.config.fdcan_flag, fdcan_pass_rx.config.brs_flag, fdcan_pass_rx.config.id_flag);
 
-        for (int i = 0; i < fdcan_tran_rx.len; i++)
+        for (int i = 0; i < fdcan_pass_rx.len; i++)
         {
-            printf("%2X ", fdcan_tran_rx.data[i]);
+            printf("%2X ", fdcan_pass_rx.data[i]);
             if (i == 31)
             {
                 printf("\n");
