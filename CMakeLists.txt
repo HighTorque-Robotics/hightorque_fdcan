@@ -31,9 +31,13 @@ if(NOT SERIAL_LIB)
     message(FATAL_ERROR "serial library not found!")
 endif()
 
+
+set(LINK_LIBS ${SERIALPORT_LIB} ${SERIAL_LIB} pthread)
+
+
 # 添加可执行文件
 add_executable(demo ${SOURCE_FILES} example/demo.cpp)
-target_link_libraries(demo ${SERIALPORT_LIB} ${SERIAL_LIB})
+target_link_libraries(demo ${LINK_LIBS})
 
 add_executable(demo1 ${SOURCE_FILES} example/demo1.cpp)
-target_link_libraries(demo1 ${SERIALPORT_LIB} ${SERIAL_LIB})
+target_link_libraries(demo1 ${LINK_LIBS})

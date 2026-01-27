@@ -9,9 +9,21 @@
 
 canport::canport(uint8_t portx, std::string serial_full_prefix)
 {
+    board_version.data16 = 0;
+
     serial_init(portx, serial_full_prefix);
+    get_board_version();
 
+}
 
+canport::~canport()
+{
+    ser_dev.close();
+
+    if (ser_recv_thread.joinable())
+    {
+        ser_recv_thread.join();
+    }
 }
 
 
@@ -63,6 +75,8 @@ void canport::serial_init(uint8_t portx, std::string serial_full_prefix)
     {
         std::cout << "Serial Port " << port_name << " initialized" << std::endl;
     }
+
+    ser_recv_thread = std::thread(&canport::recv, this);
 }
 
 
@@ -137,31 +151,31 @@ std::vector<std::string> canport::list_serial_ports(const std::string& full_pref
 }
 
 
-// void canport::get_board_version()
-// {
-//     if (cdc_tx_message.head.s.cmd != MODE_SET_NUM)
-//     {
-//         cdc_tx_message.head.s.head = 0XF7;
-//         cdc_tx_message.head.s.cmd = MODE_SET_NUM;
-//         cdc_tx_message.head.s.len = 2;
-//         memset(&cdc_tx_message.data, 0, cdc_tx_message.head.s.len);
-//     }
+void canport::get_board_version()
+{
+    if (cdc_tx_message.head.s.cmd != MODE_SET_NUM)
+    {
+        cdc_tx_message.head.s.head = 0XF7;
+        cdc_tx_message.head.s.cmd = MODE_SET_NUM;
+        cdc_tx_message.head.s.len = 2;
+        memset(&cdc_tx_message.data, 0, cdc_tx_message.head.s.len);
+    }
 
-//     cdc_tx_message.data.data[0] = 10;
+    cdc_tx_message.data.data[0] = 10;
 
-//     uint16_t t = 0;
-//     uint16_t max_num = 1000;
-//     while (t++ < max_num)
-//     {
-//         send(&cdc_tx_message);
-//         std::this_thread::sleep_for(std::chrono::milliseconds(20));
-//         if (port_version >= COMBINE_VERSION(3, 0, 0))
-//         {
-//             // printf("\033[1;32m ttt %d\033[0m", t);
-//             break;
-//         }
-//     }
-// }
+    for (int i = 0; i < 50; i++)
+    {
+        send(&cdc_tx_message);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        if (board_version.data16 >= COMBINE_VERSION(3, 0, 0))
+        {
+            printf("board version: %d.%d.%d\n", board_version.major, board_version.minor, board_version.patch);
+            return;
+        }
+    }
+
+    throw std::runtime_error("Failed to retrieve the communication board version number!!!");
+}
 
 
 void canport::send(cdc_tr_message_s *cdc_tx_message)
@@ -195,7 +209,7 @@ void canport::send(cdc_tr_message_s *cdc_tx_message)
 void canport::recv()
 {
     uint8_t crc8 = 0;
-    uint8_t crc16 = 0;
+    uint16_t crc16 = 0;
     cdc_tr_message_data_s cdc_rx_data = {0};
 
     while(ser_dev.isOpen())
@@ -217,10 +231,18 @@ void canport::recv()
 
             ser_dev.read((uint8_t *)&crc16, 2);
             ser_dev.read((uint8_t *)&cdc_rx_data, cdc_rx_head.len);
-            if (crc16 != crc16_ccitt(0xFFFF, (const uint8_t *)&cdc_rx_data, cdc_rx_head.len))
+
+            if (crc16 != crc16_ccitt(0xFFFF, (const uint8_t *)&cdc_rx_data.data, cdc_rx_head.len))
             {
                 continue;
             }
+
+            // printf("cmd %02X  ", cdc_rx_head.cmd);
+            // for (int i = 0; i < cdc_rx_head.len; i++)
+            // {
+            //     printf("0x%02X ", cdc_rx_data.data[i]);
+            // }
+            // printf("\n");
 
             switch (cdc_rx_head.cmd)
             {

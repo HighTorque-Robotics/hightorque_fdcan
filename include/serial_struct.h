@@ -45,9 +45,16 @@
 #pragma pack(1)
 typedef struct
 {
-    uint8_t major : 4;
-    uint8_t minor : 8;
-    uint8_t patch : 4;
+    union 
+    {
+        struct 
+        {
+            uint8_t patch : 4;
+            uint8_t minor : 8;
+            uint8_t major : 4;
+        };
+        uint16_t data16;
+    };
 } version_s, *p_version_s;
 
 typedef struct 
@@ -99,7 +106,6 @@ typedef struct
 {
     union
     {
-        cdc_rx_motor_version_s motor_version[CDC_TR_MESSAGE_DATA_LEN / sizeof(cdc_rx_motor_version_s)];
         uint8_t data[CDC_TR_MESSAGE_DATA_LEN];
         int16_t data16[CDC_TR_MESSAGE_DATA_LEN / sizeof(int16_t)];
     };
