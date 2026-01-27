@@ -43,9 +43,8 @@ int main()
             printf("\n\n\n");
         }
 
-        
         port1.fdcan_pass_config(true, true, true);
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 20; i++)
         {
             if (port1.fdcan_pass_data(i, tdata, sizeof(tdata)))
             {

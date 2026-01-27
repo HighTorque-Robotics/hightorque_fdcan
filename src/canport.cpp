@@ -197,7 +197,7 @@ void canport::serial_init(uint8_t portx, std::string serial_full_prefix)
     }
 
     const std::string port_name = com_board_ports[portx - 1].c_str();
-    std::cout << "port_name: " << port_name << std::endl;
+    PRINT_INFO_G("port_name: %s", port_name.c_str());
 
     ser_dev.setPort(port_name.c_str());
     ser_dev.setBaudrate(4000000);
@@ -213,11 +213,7 @@ void canport::serial_init(uint8_t portx, std::string serial_full_prefix)
         throw std::runtime_error("serial open err!!!");
     }
     
-    if (ser_dev.isOpen())
-    {
-        std::cout << "Serial Port " << port_name << " initialized" << std::endl;
-    }
-
+    PRINT_INFO_G("Serial Port %s initialized", port_name.c_str());
     ser_recv_thread = std::thread(&canport::recv, this);
 }
 
@@ -310,7 +306,7 @@ void canport::get_board_version()
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         if (board_version.data16 >= COMBINE_VERSION(3, 0, 0))
         {
-            printf("board version: %d.%d.%d\n", board_version.major, board_version.minor, board_version.patch);
+            PRINT_INFO_G("board version: %d.%d.%d\n", board_version.major, board_version.minor, board_version.patch);
             return;
         }
     }
