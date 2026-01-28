@@ -18,7 +18,8 @@ canport::canport(uint8_t portx, std::string serial_full_prefix)
     get_board_version();
     if (board_version.data16 < COMBINE_VERSION(4, 8, 8))
     {
-        throw std::runtime_error("The communication board version is too low!!!");
+        PRINT_ERROR("The communication board version is too low!!!");
+        exit(1);
     }
 
     fdcan_pass_init();
@@ -112,7 +113,6 @@ void canport::fdcan_pass_config(bool fdcan_flag, bool brs_flag, bool ext_flag)
     fdcan_pass_config_rx.brs_flag = brs_flag;
     fdcan_pass_config_rx.id_flag = ext_flag;
     fdcan_pass_config_rx.send_flag = 1;
-    cdc_tx_message.head.s.len = 0;
 }
 
 
@@ -174,7 +174,8 @@ void canport::serial_init(uint8_t portx, std::string serial_full_prefix)
     std::vector<std::string> ports = list_serial_ports(serial_full_prefix);
     if (ports.empty())
     {
-        throw std::runtime_error("No serial ports found for prefix: " + serial_full_prefix);
+        PRINT_ERROR("No serial ports found for prefix: %s", serial_full_prefix.c_str());
+        exit(1);
     }
 
 
@@ -190,10 +191,8 @@ void canport::serial_init(uint8_t portx, std::string serial_full_prefix)
 
     if (portx > 0 && com_board_ports.size() < portx)
     {
-        throw std::runtime_error(
-            "Requested port index " + std::to_string(portx) +
-            " is invalid. Only " + std::to_string(com_board_ports.size()) +
-            " communication ports available (index starts from 1).");
+        PRINT_ERROR("Requested port index %d is invalid. Only %ld communication ports available (index starts from 1).", portx, com_board_ports.size());
+        exit(1);
     }
 
     const std::string port_name = com_board_ports[portx - 1].c_str();
@@ -210,7 +209,8 @@ void canport::serial_init(uint8_t portx, std::string serial_full_prefix)
     }
     catch(const std::exception& e)
     {
-        throw std::runtime_error("serial open err!!!");
+        PRINT_ERROR("serial open err!!!");
+        exit(1);
     }
     
     PRINT_INFO_G("Serial Port %s initialized", port_name.c_str());
@@ -267,7 +267,7 @@ std::vector<std::string> canport::list_serial_ports(const std::string& full_pref
     directory = opendir(base_path.c_str());
     if (!directory)
     {
-        std::cerr << "\033[1;31m << Could not open the directory " << base_path << "\033[0m" << std::endl;
+        PRINT_ERROR("Could not open the directory %s", base_path.c_str());
         return serial_ports; 
     }
 
@@ -311,7 +311,7 @@ void canport::get_board_version()
         }
     }
 
-    throw std::runtime_error("Failed to retrieve the communication board version number!!!");
+    PRINT_ERROR("Failed to retrieve the communication board version number!!!");
 }
 
 
@@ -394,7 +394,7 @@ void canport::send()
     }
     catch(const std::exception& e)
     {
-        std::cerr << e.what() << '\n';
+        PRINT_ERROR("serial send err: %s", e.what());
         ser_dev.close();
     }
 }
