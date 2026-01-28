@@ -103,6 +103,7 @@ void canport::fdcan_pass_init()
     send();
 
     fdcan_pass_config_rx.send_flag = 1;
+    cdc_tx_message.head.s.len = 0;
 }
 
 
@@ -120,6 +121,7 @@ uint8_t canport::fdcan_pass_data(uint32_t id, uint8_t *data, uint8_t len)
 {
     const uint8_t fdcan_data_len = fdcan_pass_len(len);
     const uint8_t fdcan_pass_config_len = sizeof(id) + sizeof(cdc_tr_fdcan_pass_config_s) + sizeof(len);
+
     if (cdc_tx_message.head.s.len + fdcan_pass_config_len > CDC_TR_MESSAGE_DATA_LEN - sizeof(cdc_tr_message_head_s))
     {
         return 1;
