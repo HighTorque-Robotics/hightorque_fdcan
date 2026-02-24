@@ -90,16 +90,16 @@ typedef struct
         };
         uint8_t data;
     };
-} cdc_tr_fdcan_pass_config_s;
+} cdc_tr_fdcan_config_s;
 
 
 typedef struct
 {
     uint32_t id;
-    cdc_tr_fdcan_pass_config_s config;
+    cdc_tr_fdcan_config_s config;
     uint8_t len;
     uint8_t data[64];
-} cdc_tr_fdcan_pass_s;
+} cdc_tr_fdcan_s;
 
 
 typedef struct

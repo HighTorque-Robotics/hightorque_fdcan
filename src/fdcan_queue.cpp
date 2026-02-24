@@ -11,7 +11,7 @@ fdcan_queue::fdcan_queue(size_t capacity)
         buffer_ = nullptr;
         return;
     }
-    buffer_ = static_cast<cdc_tr_fdcan_pass_s *>(std::malloc(capacity_ * sizeof(cdc_tr_fdcan_pass_s)));
+    buffer_ = static_cast<cdc_tr_fdcan_s *>(std::malloc(capacity_ * sizeof(cdc_tr_fdcan_s)));
     if (!buffer_)
     {
         PRINT_ERROR("fdcan_queue malloc error!!!");
@@ -36,7 +36,7 @@ size_t fdcan_queue::next_index(size_t index) const
 }
 
 
-bool fdcan_queue::push(const cdc_tr_fdcan_pass_s &item)
+bool fdcan_queue::push(const cdc_tr_fdcan_s &item)
 {
     std::lock_guard<std::mutex> lock(mtx_);
 
@@ -59,7 +59,7 @@ bool fdcan_queue::push(const cdc_tr_fdcan_pass_s &item)
 }
 
 
-bool fdcan_queue::pop(cdc_tr_fdcan_pass_s &item)
+bool fdcan_queue::pop(cdc_tr_fdcan_s &item)
 {
     std::lock_guard<std::mutex> lock(mtx_);
 
