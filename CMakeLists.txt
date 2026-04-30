@@ -6,6 +6,9 @@ project(hightorque_fdcan)
 # 包含头文件目录
 include_directories(include)
 
+# 先编译 serial 库
+add_subdirectory(lib/serial)
+
 # 源文件变量
 set(SOURCE_FILES
     src/canport.cpp
@@ -13,28 +16,15 @@ set(SOURCE_FILES
     src/fdcan_queue.cpp
 )
 
-link_directories(${CMAKE_SOURCE_DIR}/lib)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SP REQUIRED libserialport)
 
-# 查找 libserialport 和 serial
-find_library(SERIALPORT_LIB NAMES serialport serial)
-
-if(NOT SERIALPORT_LIB)
-    message(FATAL_ERROR "libserialport not found!")
-endif()
-
-find_library(SERIAL_LIB NAMES serial)
-
-if(NOT SERIAL_LIB)
-    message(FATAL_ERROR "serial library not found!")
-endif()
-
-
-set(LINK_LIBS ${SERIALPORT_LIB} ${SERIAL_LIB} pthread)
-
+include_directories(${SP_INCLUDE_DIRS})
+include_directories(lib/serial/include)
 
 # 添加可执行文件
 add_executable(demo1 ${SOURCE_FILES} example/demo1.cpp)
-target_link_libraries(demo1 ${LINK_LIBS})
+target_link_libraries(demo1 serial ${SP_LIBRARIES} pthread)
 
 add_executable(demo2 ${SOURCE_FILES} example/demo2.cpp)
-target_link_libraries(demo2 ${LINK_LIBS})
+target_link_libraries(demo2 serial ${SP_LIBRARIES} pthread)
