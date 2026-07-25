@@ -3,7 +3,6 @@
 
 #include <string>
 #include <iostream>
-#include <libserialport.h>
 #include <dirent.h>
 #include <algorithm>
 
@@ -210,23 +209,59 @@ bool canport::fdcan_queue_pop(cdc_tr_fdcan_s *fdcan_buf)
 
 void canport::serial_init(uint8_t portx, std::string serial_full_prefix)
 {
-    std::vector<std::string> ports = list_serial_ports(serial_full_prefix);
-    if (ports.empty())
+    std::vector<serial::PortInfo> all_ports = serial::list_ports();
+    std::vector<std::string> com_board_ports;
+
+    for (const auto& port_info : all_ports)
+    {
+        if (port_info.port.find(serial_full_prefix) == std::string::npos)
+        {
+            continue;
+        }
+
+        std::string hw = port_info.hardware_id;
+        auto pos = hw.find("VID:PID=");
+        if (pos == std::string::npos)
+        {
+            continue;
+        }
+
+        std::string vid_pid = hw.substr(pos + 8);
+        auto colon = vid_pid.find(':');
+        if (colon == std::string::npos)
+        {
+            continue;
+        }
+
+        std::string vid = vid_pid.substr(0, colon);
+        std::string pid_part = vid_pid.substr(colon + 1);
+        auto space = pid_part.find(' ');
+        if (space != std::string::npos)
+        {
+            pid_part = pid_part.substr(0, space);
+        }
+        std::string pid = pid_part;
+
+        std::transform(vid.begin(), vid.end(), vid.begin(), ::toupper);
+        std::transform(pid.begin(), pid.end(), pid.begin(), ::toupper);
+        if (vid == "CAF1" && pid == "FFFF")
+        {
+            
+            com_board_ports.push_back(port_info.port);
+        }
+    }
+
+    PRINT_INFO("Detected serial ports: ");
+    for (const auto& port_name : com_board_ports)
+    {
+        PRINT_INFO("%s", port_name.c_str());
+    }
+
+    if (com_board_ports.empty())
     {
         PRINT_ERROR("No serial ports found for prefix: %s", serial_full_prefix.c_str());
         exit(1);
     }
-
-
-    std::vector<std::string> com_board_ports;
-    for (const std::string& port : ports) 
-    {   
-        if (serial_pid_vid(port.c_str()) > 0)
-        {
-            com_board_ports.push_back(port);
-        }
-    }
-
 
     if (portx > 0 && com_board_ports.size() < portx)
     {
@@ -254,76 +289,6 @@ void canport::serial_init(uint8_t portx, std::string serial_full_prefix)
     
     PRINT_INFO_G("Serial Port %s initialized", port_name.c_str());
     ser_recv_thread = std::thread(&canport::recv, this);
-}
-
-
-int canport::serial_pid_vid(const char *name)
-{
-    int pid, vid;
-    int r = 0;
-    struct sp_port *port;
-    try
-    {
-        sp_get_port_by_name(name, &port);
-        if (sp_get_port_usb_vid_pid(port, &vid, &pid) != SP_OK) 
-        {
-            r = -1;
-        } 
-        else 
-        {
-            if (pid == 0xFFFF && vid == 0xCAF1)
-            {
-                r = 1;
-            }
-            else
-            {
-                r = -1;
-            }
-        }
-
-        sp_free_port(port);
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-        r = -3;
-        sp_close(port);
-        sp_free_port(port);
-    }
-
-    return r;
-}
-
-
-std::vector<std::string> canport::list_serial_ports(const std::string& full_prefix) 
-{
-    std::string base_path = full_prefix.substr(0, full_prefix.rfind('/') + 1);
-    std::string prefix = full_prefix.substr(full_prefix.rfind('/') + 1);
-    std::vector<std::string> serial_ports;
-    DIR *directory;
-    struct dirent *entry;
-
-    directory = opendir(base_path.c_str());
-    if (!directory)
-    {
-        PRINT_ERROR("Could not open the directory %s", base_path.c_str());
-        return serial_ports; 
-    }
-
-    while ((entry = readdir(directory)) != NULL)
-    {
-        std::string entryName = entry->d_name;
-        if (entryName.find(prefix) == 0)
-        { 
-            serial_ports.push_back(base_path + entryName);
-        }
-    }
-
-    closedir(directory);
-
-    std::reverse(serial_ports.begin(), serial_ports.end());
-
-    return serial_ports;
 }
 
 

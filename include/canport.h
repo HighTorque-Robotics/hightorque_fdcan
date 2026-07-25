@@ -34,10 +34,8 @@ private:
     fdcan_queue fdcan_queue_rx;
     
     void serial_init(uint8_t portx, std::string serial_full_prefix);
-    std::vector<std::string> list_serial_ports(const std::string& full_prefix);
     void fdcan_init(void);
     uint8_t fdcan_len(uint8_t size);
-    int serial_pid_vid(const char *name);
     void get_board_version();
     void fdcan_process(uint8_t *data, uint16_t len);
     void send();

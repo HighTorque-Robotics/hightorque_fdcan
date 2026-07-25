@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 4.0.0)
 
 # 项目名称
 project(hightorque_fdcan)
@@ -17,7 +17,6 @@ set(SOURCE_FILES
 )
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(SP REQUIRED libserialport)
 
 include_directories(${SP_INCLUDE_DIRS})
 include_directories(lib/serial/include)
