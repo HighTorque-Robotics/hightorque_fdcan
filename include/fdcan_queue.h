@@ -17,8 +17,8 @@ public:
 
     ~fdcan_queue();
 
-    bool push(const cdc_tr_fdcan_s &item);
-    bool pop(cdc_tr_fdcan_s &item);
+    bool push(const fdcan_msg_s &item);
+    bool pop(fdcan_msg_s &item);
     void clear();
 
     bool empty() const;
@@ -29,7 +29,7 @@ public:
 private:
     size_t next_index(size_t index) const;
 
-    cdc_tr_fdcan_s *buffer_;
+    fdcan_msg_s *buffer_;
     size_t capacity_;
     size_t head_;            // 出队位置
     size_t tail_;            // 入队位置

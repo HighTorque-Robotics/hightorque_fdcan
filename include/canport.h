@@ -14,12 +14,12 @@ public:
     ~canport();
 
     void fdcan_send();
-    void fdcan_config(bool fdcan_flag, bool brs_flag, bool ext_flag);
-    uint8_t fdcan_data(uint32_t id, uint8_t *data, uint8_t len);
-    uint8_t fdcan_data(uint32_t id, uint8_t *data, uint8_t len, bool fdcan_flag, bool brs_flag, bool ext_flag);
+    // void fdcan_config(bool fdcan_flag, bool brs_flag, bool ext_flag);
+    // uint8_t fdcan_data(uint32_t id, uint8_t *data, uint8_t len);
+    // uint8_t fdcan_data(uint32_t id, uint8_t *data, uint8_t len, bool fdcan_flag, bool brs_flag, bool ext_flag);
 
-    bool fdcan_queue_pop(uint32_t *id, uint8_t *data, uint8_t *len, cdc_tr_fdcan_config_s *config);
-    bool fdcan_queue_pop(cdc_tr_fdcan_s *fdcan_buf);
+    // bool fdcan_queue_pop(uint32_t *id, uint8_t *data, uint8_t *len, cdc_tr_fdcan_config_s *config);
+    // bool fdcan_queue_pop(cdc_tr_fdcan_s *fdcan_buf);
     
 
 private:
@@ -27,17 +27,17 @@ private:
     version_s version;
 
     serial::Serial ser_dev;
-    cdc_tr_message_s cdc_tx_message;
+    prot_cdc2comm_s prot_tdata;
     
     std::thread ser_recv_thread;
-    cdc_tr_fdcan_config_s fdcan_config_rx;
-    fdcan_queue fdcan_queue_rx;
+    // cdc_tr_fdcan_config_s fdcan_config_rx;
+    // fdcan_queue fdcan_queue_rx;
     
     void serial_init(uint8_t portx, std::string serial_full_prefix);
-    void fdcan_init(void);
-    uint8_t fdcan_len(uint8_t size);
+    // void fdcan_init(void);
+    // uint8_t fdcan_len(uint8_t size);
     void get_board_version();
-    void fdcan_process(uint8_t *data, uint16_t len);
+    // void fdcan_process(uint8_t *data, uint16_t len);
     void send();
     void recv();
 };
