@@ -2,21 +2,22 @@
 #include "version.h"
 #include "crc.h"
 
-#include <string>
-#include <iostream>
-#include <dirent.h>
 #include <algorithm>
+
 
 
 canport::canport(uint8_t portx, std::string serial_full_prefix)
 {
+    const auto t1 = std::chrono::steady_clock::now();
+
     comm_version.data32 = 0;
     sdk_version.data32 = HIGHTORQUE_FDCAN_VERSION;
 
     PRINT_INFO_G("FDCAN_PASS version: %d.%d.%d", sdk_version.major, sdk_version.minor, sdk_version.patch);
 
     serial_init(portx, serial_full_prefix);
-    get_board_version();
+    get_comm_version();
+    comm_init();
     if (comm_version.data32 < VER_COMBINE(4, 8, 8))
     {
         PRINT_ERROR("The communication board version is too low!!!");
@@ -24,6 +25,11 @@ canport::canport(uint8_t portx, std::string serial_full_prefix)
     }
 
     // fdcan_init();
+
+    const auto t2 = std::chrono::steady_clock::now();
+    auto t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+
+    std::cout << "初始化耗时：" << t.count() << "ms" << std::endl;
 }
 
 canport::~canport()
@@ -84,28 +90,32 @@ canport::~canport()
 // }
 
 
-// void canport::fdcan_init()
-// {
-//     if (cdc_tx_message.head.s.cmd != MODE_FDCAN_PASS)
-//     {
-//         cdc_tx_message.head.s.head = 0XF7;
-//         cdc_tx_message.head.s.cmd = MODE_FDCAN_PASS;
-//         memset(&cdc_tx_message.data, 0, CDC_TR_MESSAGE_DATA_LEN);
-//     }
+void canport::port_tdata_clean(const uint8_t mode, const uint16_t len)
+{
+    prot_tdata.head.s.len = len;
+    if (prot_tdata.head.s.cmd != mode)
+    {
+        prot_tdata.head.s.head = PROT_HEAD;
+        prot_tdata.head.s.cmd = mode;
+        memset(&prot_tdata.data, 0, len);
+    }
+}
 
-//     fdcan_config_rx.data = 0;
-//     fdcan_config_rx.brs_flag = 1;
-//     fdcan_config_rx.fdcan_flag = 1;
-//     fdcan_config_rx.id_flag = 1;
-//     fdcan_config_rx.send_flag = 0;
+
+void canport::fdcan_init()
+{
+    // port_tdata_clean()
+
+    // prot_tdata.data.s.fdcan_msg.data[0];
+    // prot_tdata.data.s.fdcan_msg.config.brs_flag = 1;
+    // prot_tdata.data.s.fdcan_msg.config.fdcan_flag = 1;
+    // prot_tdata.data.s.fdcan_msg.config.id_flag = 1;
+    // prot_tdata.data.s.fdcan_msg.config.send_flag = 0;
     
-//     cdc_tx_message.head.s.len = sizeof(cdc_tr_fdcan_config_s) + 5;
+    // prot_tdata.head.s.len = sizeof(fdcan_config_s);
 
-//     send();
-
-//     fdcan_config_rx.send_flag = 1;
-//     cdc_tx_message.head.s.len = 0;
-// }
+    // send();
+}
 
 
 // void canport::fdcan_config(bool fdcan_flag, bool brs_flag, bool ext_flag)
@@ -293,20 +303,14 @@ void canport::serial_init(uint8_t portx, std::string serial_full_prefix)
 }
 
 
-void canport::get_board_version()
+void canport::get_comm_version()
 {
-    if (prot_tdata.head.s.cmd != MODE_COMM_VERSION)
-    {
-        prot_tdata.head.s.head = PROT_HEAD;
-        prot_tdata.head.s.cmd = MODE_COMM_VERSION;
-        prot_tdata.head.s.len = 1;
-        memset(&prot_tdata.data, 0, prot_tdata.head.s.len);
-    }
+    port_tdata_clean(MODE_COMM_VERSION, 0);
 
-    for (int i = 0; i < 50; i++)
+    for (int i = 0; i < 5; i++)
     {
         send();
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         if (comm_version.data32 >= VER_COMBINE(3, 0, 0))
         {
             PRINT_INFO_G("board version: %d.%d.%d", comm_version.major, comm_version.minor, comm_version.patch);
@@ -315,6 +319,28 @@ void canport::get_board_version()
     }
 
     PRINT_ERROR("Failed to retrieve the communication board version number!!!");
+}
+
+
+void canport::comm_init()
+{
+    port_tdata_clean(MODE_COMM_INIT, 0);
+
+    prot_tdata.head.s.len = 0;
+
+    comm_init_flag = 0;
+    for (int i = 0; i < 5; i++)
+    {
+        send();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        if (comm_init_flag != 0)
+        {
+            PRINT_INFO_G("comm init");
+            return;
+        }
+    }
+
+    PRINT_ERROR("comm init error!");
 }
 
 
@@ -435,7 +461,7 @@ void canport::recv()
             }
 
             #if 0
-            printf("cmd %02X  ", prot_rdata.head.s.cmd);
+            printf("cmd %02X, len = %d   ", prot_rdata.head.s.cmd, prot_rdata.head.s.len);
             for (int i = 0; i < prot_rdata.head.s.len; i++)
             {
                 printf("0x%02X ", prot_rdata.data.raw[i]);
@@ -449,6 +475,9 @@ void canport::recv()
                 comm_version.major = prot_rdata.data.s.version.major;
                 comm_version.minor = prot_rdata.data.s.version.minor;
                 comm_version.patch = prot_rdata.data.s.version.patch;
+                break;
+            case MODE_COMM_INIT:
+                comm_init_flag = prot_rdata.data.s.raw[0];
                 break;
             
             default:
