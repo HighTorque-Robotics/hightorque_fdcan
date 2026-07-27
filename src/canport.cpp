@@ -10,14 +10,14 @@
 
 canport::canport(uint8_t portx, std::string serial_full_prefix)
 {
-    board_version.data32 = 0;
-    version.data32 = HIGHTORQUE_FDCAN_VERSION;
+    comm_version.data32 = 0;
+    sdk_version.data32 = HIGHTORQUE_FDCAN_VERSION;
 
-    PRINT_INFO_G("FDCAN_PASS version: %d.%d.%d", version.major, version.minor, version.patch);
+    PRINT_INFO_G("FDCAN_PASS version: %d.%d.%d", sdk_version.major, sdk_version.minor, sdk_version.patch);
 
     serial_init(portx, serial_full_prefix);
     get_board_version();
-    if (board_version.data32 < VER_COMBINE(4, 8, 8))
+    if (comm_version.data32 < VER_COMBINE(4, 8, 8))
     {
         PRINT_ERROR("The communication board version is too low!!!");
         exit(1);
@@ -307,9 +307,9 @@ void canport::get_board_version()
     {
         send();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        if (board_version.data32 >= VER_COMBINE(3, 0, 0))
+        if (comm_version.data32 >= VER_COMBINE(3, 0, 0))
         {
-            PRINT_INFO_G("board version: %d.%d.%d\n", board_version.major, board_version.minor, board_version.patch);
+            PRINT_INFO_G("board version: %d.%d.%d", comm_version.major, comm_version.minor, comm_version.patch);
             return;
         }
     }
@@ -407,5 +407,58 @@ void canport::send()
 
 void canport::recv()
 {
+    prot_comm2cdc_s prot_rdata = {0};
 
+    while(ser_dev.isOpen())
+    {
+        prot_rdata.head.s.head = 0;
+        prot_rdata.head.s.cmd = 0;
+        prot_rdata.head.s.len = 0;
+        try
+        {  
+            ser_dev.read(&prot_rdata.head.raw[0], 1);
+            if (prot_rdata.head.s.head != PROT_HEAD)
+            {
+                continue;
+            }
+
+            ser_dev.read(&prot_rdata.head.raw[1], 4);
+            if (prot_rdata.head.s.crc_head != crc8_ccitt(&prot_rdata.head.raw[1], 3))
+            {
+                continue;
+            }
+
+            ser_dev.read(&prot_rdata.head.raw[5], prot_rdata.head.s.len + 1);
+            if (prot_rdata.head.s.crc_data != crc8_ccitt(&prot_rdata.data.raw[0], prot_rdata.head.s.len))
+            {
+                continue;
+            }
+
+            #if 0
+            printf("cmd %02X  ", prot_rdata.head.s.cmd);
+            for (int i = 0; i < prot_rdata.head.s.len; i++)
+            {
+                printf("0x%02X ", prot_rdata.data.raw[i]);
+            }
+            printf("\n");
+            #endif
+
+            switch (prot_rdata.head.s.cmd)
+            {
+            case MODE_COMM_VERSION:
+                comm_version.major = prot_rdata.data.s.version.major;
+                comm_version.minor = prot_rdata.data.s.version.minor;
+                comm_version.patch = prot_rdata.data.s.version.patch;
+                break;
+            
+            default:
+                break;
+            }
+        }
+        catch(const std::exception& e)
+        {
+            // std::cerr << "\033[1;31m" << e.what() << "\033[0m" << '\n';
+            ser_dev.close();
+        }
+    }
 }

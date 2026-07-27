@@ -23,8 +23,8 @@ public:
     
 
 private:
-    version_s board_version;
-    version_s version;
+    version_s comm_version;
+    version_s sdk_version;
 
     serial::Serial ser_dev;
     prot_cdc2comm_s prot_tdata;
