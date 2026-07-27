@@ -7,6 +7,33 @@
 #include <thread>
 
 
+typedef enum 
+{
+    ARB_BAUD_50K,
+    ARB_BAUD_100K,
+    ARB_BAUD_125K,
+    ARB_BAUD_200K,
+    ARB_BAUD_250K,
+    ARB_BAUD_500K,
+    ARB_BAUD_800K,
+    ARB_BAUD_1M,
+} arb_baud_t;
+
+
+typedef enum 
+{
+    DATA_BAUD_50K,
+    DATA_BAUD_100K,
+    DATA_BAUD_125K,
+    DATA_BAUD_250K,
+    DATA_BAUD_500K,
+    DATA_BAUD_1M,
+    DATA_BAUD_2M,
+    DATA_BAUD_4M,
+    DATA_BAUD_5M,
+} data_baud_t;
+
+
 class canport
 {
 public:
@@ -34,11 +61,14 @@ private:
     // fdcan_queue fdcan_queue_rx;
 
     uint8_t comm_init_flag = 0;
+    uint8_t set_fdcan_baud_flag = 0;
     
     void serial_init(uint8_t portx, std::string serial_full_prefix);
     void port_tdata_clean(const uint8_t mode, const uint16_t len);
     void comm_init(void);
     void fdcan_init(void);
+    void set_fdcan_baud(arb_baud_t arb_baud, data_baud_t data_baud);
+    void set_fdcan_baud(fdcan_param_s *p_fdcan_param);
     uint8_t fdcan_len(uint8_t size);
     void get_comm_version();
     // void fdcan_process(uint8_t *data, uint16_t len);

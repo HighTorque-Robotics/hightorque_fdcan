@@ -154,6 +154,7 @@ typedef struct
         union
         {
             fdcan_msg_s fdcan_msg;
+            fdcan_param_s fdcan_param;
             uint8_t raw[PROT_DATA_LEN - sizeof(fdcan_state_s)];
         } s;
         uint8_t raw[PROT_DATA_LEN];

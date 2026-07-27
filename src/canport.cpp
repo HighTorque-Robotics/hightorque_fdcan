@@ -319,6 +319,7 @@ void canport::get_comm_version()
     }
 
     PRINT_ERROR("Failed to retrieve the communication board version number!!!");
+    exit(1);
 }
 
 
@@ -341,7 +342,161 @@ void canport::comm_init()
     }
 
     PRINT_ERROR("comm init error!");
+    exit(1);
 }
+
+
+void canport::set_fdcan_baud(fdcan_param_s *p_fdcan_param)
+{
+    if (p_fdcan_param == NULL)
+    {
+        PRINT_ERROR("p_fdcan_param is NULL!");
+        exit(1);
+    }
+
+    port_tdata_clean(MODE_FDCAN_PARAM, sizeof(fdcan_param_s));
+
+    prot_tdata.data.s.fdcan_param = *p_fdcan_param;
+
+    set_fdcan_baud_flag = 99;
+    for (int i = 0; i < 5; i++)
+    {
+        send();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        if (set_fdcan_baud_flag != 99)
+        {
+            PRINT_INFO_G("set fdcan baud ok");
+            return;
+        }
+    }
+
+    PRINT_ERROR("set fdcan baud error!");
+    exit(1);
+}
+
+
+void canport::set_fdcan_baud(arb_baud_t arb_baud, data_baud_t data_baud)
+{
+    fdcan_param_s param = {0};
+
+    switch (arb_baud) 
+    {
+    case ARB_BAUD_50K:
+        param.arb_pre = 40;
+        param.arb_seg1 = 24;
+        param.arb_seg2 = 15;
+        param.arb_sjw = 15;
+        break;
+    case ARB_BAUD_100K:
+        param.arb_pre = 40;
+        param.arb_seg1 = 16;
+        param.arb_seg2 = 3;
+        param.arb_sjw = 2;
+        break;
+    case ARB_BAUD_125K:
+        param.arb_pre = 5;
+        param.arb_seg1 = 111;
+        param.arb_seg2 = 16;
+        param.arb_sjw = 15;
+        break;
+    case ARB_BAUD_200K:
+        param.arb_pre = 20;
+        param.arb_seg1 = 15;
+        param.arb_seg2 = 4;
+        param.arb_sjw = 4;
+        break;
+    case ARB_BAUD_250K:
+        param.arb_pre = 20;
+        param.arb_seg1 = 12;
+        param.arb_seg2 = 3;
+        param.arb_sjw = 3;
+        break;
+    case ARB_BAUD_500K:
+        param.arb_pre = 2;
+        param.arb_seg1 = 63;
+        param.arb_seg2 = 16;
+        param.arb_sjw = 16;
+        break;
+    case ARB_BAUD_800K:
+        param.arb_pre = 1;
+        param.arb_seg1 = 79;
+        param.arb_seg2 = 20;
+        param.arb_sjw = 15;
+        break;
+    case ARB_BAUD_1M:
+        param.arb_pre = 1;
+        param.arb_seg1 = 59;
+        param.arb_seg2 = 20;
+        param.arb_sjw = 15;
+        break;
+    default:
+        PRINT_ERROR("fdcan arb buad error!");
+        exit(1);
+    }
+
+    switch (data_baud) 
+    {
+    case DATA_BAUD_50K:
+        param.data_pre = 40;
+        param.data_seg1 = 24;
+        param.data_seg2 = 15;
+        param.data_sjw = 15;
+        break;
+    case DATA_BAUD_100K:
+        param.data_pre = 40;
+        param.data_seg1 = 16;
+        param.data_seg2 = 3;
+        param.data_sjw = 2;
+        break;
+    case DATA_BAUD_125K:
+        param.data_pre = 5;
+        param.data_seg1 = 111;
+        param.data_seg2 = 16;
+        param.data_sjw = 15;
+        break;
+    case DATA_BAUD_250K:
+        param.data_pre = 20;
+        param.data_seg1 = 12;
+        param.data_seg2 = 3;
+        param.data_sjw = 3;
+        break;
+    case DATA_BAUD_500K:
+        param.data_pre = 2;
+        param.data_seg1 = 63;
+        param.data_seg2 = 16;
+        param.data_sjw = 16;
+        break;
+    case DATA_BAUD_1M:
+        param.data_pre = 1;
+        param.data_seg1 = 59;
+        param.data_seg2 = 20;
+        param.data_sjw = 15;
+        break;
+    case DATA_BAUD_2M:
+        param.data_pre = 1;
+        param.data_seg1 = 29;
+        param.data_seg2 = 10;
+        param.data_sjw = 10;
+        break;
+    case DATA_BAUD_4M:
+        param.data_pre = 1;
+        param.data_seg1 = 14;
+        param.data_seg2 = 5;
+        param.data_sjw = 5;
+        break;
+    case DATA_BAUD_5M:
+        param.data_pre = 2;
+        param.data_seg1 = 5;
+        param.data_seg2 = 2;
+        param.data_sjw = 2;
+        break;
+    default:
+        PRINT_ERROR("fdcan data buad error!");
+        exit(1);
+    }
+
+    set_fdcan_baud(&param);
+}   
 
 
 void canport::fdcan_send()
@@ -479,7 +634,9 @@ void canport::recv()
             case MODE_COMM_INIT:
                 comm_init_flag = prot_rdata.data.s.raw[0];
                 break;
-            
+            case MODE_FDCAN_PARAM:
+                set_fdcan_baud_flag = prot_rdata.data.s.raw[0];
+                break;
             default:
                 break;
             }
