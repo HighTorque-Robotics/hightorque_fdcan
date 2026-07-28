@@ -10,7 +10,7 @@
 #define PRINT_ERROR(format, ...)  printf("\033[1;31m" format "\033[0m\n", ##__VA_ARGS__)
 
 
-#define  PROT_DATA_LEN          512
+#define  PROT_DATA_LEN          500
 #define  PROT_HEAD              0xF7
 #define  PROT_FDCAN_STATE_LEN   3
 
@@ -151,12 +151,8 @@ typedef struct
     prot_head_s head;
     union
     {
-        union
-        {
-            fdcan_msg_s fdcan_msg;
-            fdcan_param_s fdcan_param;
-            uint8_t raw[PROT_DATA_LEN - sizeof(fdcan_state_s)];
-        } s;
+        fdcan_msg_s fdcan_msg;
+        fdcan_param_s fdcan_param;
         uint8_t raw[PROT_DATA_LEN];
     } data;
 } prot_cdc2comm_s;

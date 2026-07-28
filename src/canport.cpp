@@ -24,7 +24,7 @@ canport::canport(uint8_t portx, std::string serial_full_prefix)
         exit(1);
     }
 
-    // fdcan_init();
+    fdcan_init();
 
     const auto t2 = std::chrono::steady_clock::now();
     auto t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
@@ -44,59 +44,59 @@ canport::~canport()
 }
 
 
-// uint8_t canport::fdcan_len(uint8_t size)
-// {
-//     uint8_t data_len = 0;
+uint8_t canport::fdcan_len(bool fdcan_flag, uint8_t size)
+{
+    uint8_t data_len = 0;
 
-//     if (fdcan_config_rx.fdcan_flag == 0 && size > 8)
-//     {
-//         return 8;
-//     }
+    if (fdcan_flag == 0 && size > 8)
+    {
+        return 8;
+    }
 
-//     if (size <= 8)
-//     {
-//         data_len = size;
-//     }
-//     else if (size <= 12)
-//     {
-//         data_len = 12;
-//     }
-//     else if (size <= 16)
-//     {
-//         data_len = 16;
-//     }
-//     else if (size <= 20)
-//     {
-//         data_len = 20;
-//     }
-//     else if (size <= 24)
-//     {
-//         data_len = 24;
-//     }
-//     else if (size <= 32)
-//     {
-//         data_len = 32;
-//     }
-//     else if (size <= 48)
-//     {
-//         data_len = 48;
-//     }
-//     else 
-//     {
-//         data_len = 64;
-//     }
+    if (size <= 8)
+    {
+        data_len = size;
+    }
+    else if (size <= 12)
+    {
+        data_len = 12;
+    }
+    else if (size <= 16)
+    {
+        data_len = 16;
+    }
+    else if (size <= 20)
+    {
+        data_len = 20;
+    }
+    else if (size <= 24)
+    {
+        data_len = 24;
+    }
+    else if (size <= 32)
+    {
+        data_len = 32;
+    }
+    else if (size <= 48)
+    {
+        data_len = 48;
+    }
+    else 
+    {
+        data_len = 64;
+    }
     
-//     return data_len;
-// }
+    return data_len;
+}
 
 
 void canport::port_tdata_clean(const uint8_t mode, const uint16_t len)
 {
-    prot_tdata.head.s.len = len;
     if (prot_tdata.head.s.cmd != mode)
     {
         prot_tdata.head.s.head = PROT_HEAD;
         prot_tdata.head.s.cmd = mode;
+        prot_tdata.head.s.len = len;
         memset(&prot_tdata.data, 0, len);
     }
 }
@@ -104,95 +104,48 @@ void canport::port_tdata_clean(const uint8_t mode, const uint16_t len)
 
 void canport::fdcan_init()
 {
-    // port_tdata_clean()
+    port_tdata_clean(MODE_FDCAN_PASS, PROT_DATA_LEN);
 
-    // prot_tdata.data.s.fdcan_msg.data[0];
-    // prot_tdata.data.s.fdcan_msg.config.brs_flag = 1;
-    // prot_tdata.data.s.fdcan_msg.config.fdcan_flag = 1;
-    // prot_tdata.data.s.fdcan_msg.config.id_flag = 1;
-    // prot_tdata.data.s.fdcan_msg.config.send_flag = 0;
+    prot_tdata.data.fdcan_msg.data[0];
+    prot_tdata.data.fdcan_msg.config.brs_flag = 1;
+    prot_tdata.data.fdcan_msg.config.fdcan_flag = 1;
+    prot_tdata.data.fdcan_msg.config.id_flag = 1;
+    prot_tdata.data.fdcan_msg.config.send_flag = 0;
     
-    // prot_tdata.head.s.len = sizeof(fdcan_config_s);
+    prot_tdata.head.s.len = sizeof(fdcan_config_s);
 
-    // send();
+    send();
+    send();
 }
 
 
-// void canport::fdcan_config(bool fdcan_flag, bool brs_flag, bool ext_flag)
-// {
-//     fdcan_config_rx.data = 0;
-//     fdcan_config_rx.fdcan_flag = fdcan_flag;
-//     fdcan_config_rx.brs_flag = brs_flag;
-//     fdcan_config_rx.id_flag = ext_flag;
-//     fdcan_config_rx.send_flag = 1;
-// }
+uint8_t canport::fdcan_data(uint32_t id, uint8_t *data, uint8_t len, bool fdcan_flag, bool brs_flag, bool ext_flag)
+{
+    const uint8_t fdcan_data_len = fdcan_len(fdcan_flag, len);
+    const uint8_t fdcan_config_len = sizeof(id) + sizeof(fdcan_config_s) + sizeof(len);
 
+    if (prot_tdata.head.s.len + fdcan_config_len + fdcan_data_len > PROT_DATA_LEN - sizeof(prot_head_s))
+    {
+        return 1;
+    }
 
-// uint8_t canport::fdcan_data(uint32_t id, uint8_t *data, uint8_t len)
-// {
-//     const uint8_t fdcan_data_len = fdcan_len(len);
-//     const uint8_t fdcan_config_len = sizeof(id) + sizeof(cdc_tr_fdcan_config_s) + sizeof(len);
+    port_tdata_clean(MODE_FDCAN_PASS, 0);
 
-//     if (cdc_tx_message.head.s.len + fdcan_config_len + fdcan_data_len > CDC_TR_MESSAGE_DATA_LEN - sizeof(cdc_tr_message_head_s))
-//     {
-//         return 1;
-//     }
+    fdcan_msg_s* const p_fdcan_buf = (fdcan_msg_s *)&prot_tdata.data.raw[prot_tdata.head.s.len];
+    prot_tdata.head.s.len += fdcan_data_len + fdcan_config_len;
 
-//     if (cdc_tx_message.head.s.cmd != MODE_FDCAN_PASS)
-//     {
-//         cdc_tx_message.head.s.head = 0XF7;
-//         cdc_tx_message.head.s.cmd = MODE_FDCAN_PASS;
-//         cdc_tx_message.head.s.len = 0;
-        
-//         memset(&cdc_tx_message.data, 0, CDC_TR_MESSAGE_DATA_LEN);
-//     }
+    p_fdcan_buf->id = id;
+    p_fdcan_buf->config.data = 0;
+    p_fdcan_buf->config.brs_flag = brs_flag;
+    p_fdcan_buf->config.fdcan_flag = fdcan_flag;
+    p_fdcan_buf->config.id_flag = ext_flag;
+    p_fdcan_buf->config.send_flag = 1;
 
-//     cdc_tr_fdcan_s* const p_fdcan_buf = (cdc_tr_fdcan_s *)&cdc_tx_message.data.data[cdc_tx_message.head.s.len];
-//     cdc_tx_message.head.s.len += fdcan_data_len + fdcan_config_len;
+    p_fdcan_buf->len = fdcan_data_len;
+    memcpy(p_fdcan_buf->data, data, fdcan_data_len);
 
-//     p_fdcan_buf->id = id;
-//     p_fdcan_buf->config = fdcan_config_rx;
-//     p_fdcan_buf->len = fdcan_data_len;
-//     memcpy(p_fdcan_buf->data, data, fdcan_data_len);
-
-//     return 0;
-// }
-
-
-// uint8_t canport::fdcan_data(uint32_t id, uint8_t *data, uint8_t len, bool fdcan_flag, bool brs_flag, bool ext_flag)
-// {
-//     const uint8_t fdcan_data_len = fdcan_len(len);
-//     const uint8_t fdcan_config_len = sizeof(id) + sizeof(cdc_tr_fdcan_config_s) + sizeof(len);
-
-//     if (cdc_tx_message.head.s.len + fdcan_config_len + fdcan_data_len > CDC_TR_MESSAGE_DATA_LEN - sizeof(cdc_tr_message_head_s))
-//     {
-//         return 1;
-//     }
-
-//     if (cdc_tx_message.head.s.cmd != MODE_FDCAN_PASS)
-//     {
-//         cdc_tx_message.head.s.head = 0XF7;
-//         cdc_tx_message.head.s.cmd = MODE_FDCAN_PASS;
-//         cdc_tx_message.head.s.len = 0;
-        
-//         memset(&cdc_tx_message.data, 0, CDC_TR_MESSAGE_DATA_LEN);
-//     }
-
-//     cdc_tr_fdcan_s* const p_fdcan_buf = (cdc_tr_fdcan_s *)&cdc_tx_message.data.data[cdc_tx_message.head.s.len];
-//     cdc_tx_message.head.s.len += fdcan_data_len + fdcan_config_len;
-
-//     p_fdcan_buf->id = id;
-//     p_fdcan_buf->config.data = 0;
-//     p_fdcan_buf->config.brs_flag = brs_flag;
-//     p_fdcan_buf->config.fdcan_flag = fdcan_flag;
-//     p_fdcan_buf->config.id_flag = ext_flag;
-//     p_fdcan_buf->config.send_flag = 1;
-
-//     p_fdcan_buf->len = fdcan_data_len;
-//     memcpy(p_fdcan_buf->data, data, fdcan_data_len);
-
-//     return 0;
-// }
+    return 0;
+}
 
 
 // bool canport::fdcan_queue_pop(uint32_t *id, uint8_t *data, uint8_t *len, cdc_tr_fdcan_config_s *config)
@@ -313,7 +266,7 @@ void canport::get_comm_version()
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         if (comm_version.data32 >= VER_COMBINE(3, 0, 0))
         {
-            PRINT_INFO_G("board version: %d.%d.%d", comm_version.major, comm_version.minor, comm_version.patch);
+            PRINT_INFO_G("board version: v%d.%d.%d", comm_version.major, comm_version.minor, comm_version.patch);
             return;
         }
     }
@@ -330,7 +283,7 @@ void canport::comm_init()
     prot_tdata.head.s.len = 0;
 
     comm_init_flag = 0;
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 50; i++)
     {
         send();
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -356,10 +309,10 @@ void canport::set_fdcan_baud(fdcan_param_s *p_fdcan_param)
 
     port_tdata_clean(MODE_FDCAN_PARAM, sizeof(fdcan_param_s));
 
-    prot_tdata.data.s.fdcan_param = *p_fdcan_param;
+    prot_tdata.data.fdcan_param = *p_fdcan_param;
 
     set_fdcan_baud_flag = 99;
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 50; i++)
     {
         send();
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -502,7 +455,7 @@ void canport::set_fdcan_baud(arb_baud_t arb_baud, data_baud_t data_baud)
 void canport::fdcan_send()
 {
     send();
-    // cdc_tx_message.head.s.len = 0;
+    prot_tdata.head.s.len = 0;
 }
 
 

@@ -41,9 +41,7 @@ public:
     ~canport();
 
     void fdcan_send();
-    // void fdcan_config(bool fdcan_flag, bool brs_flag, bool ext_flag);
-    // uint8_t fdcan_data(uint32_t id, uint8_t *data, uint8_t len);
-    // uint8_t fdcan_data(uint32_t id, uint8_t *data, uint8_t len, bool fdcan_flag, bool brs_flag, bool ext_flag);
+    uint8_t fdcan_data(uint32_t id, uint8_t *data, uint8_t len, bool fdcan_flag, bool brs_flag, bool ext_flag);
 
     // bool fdcan_queue_pop(uint32_t *id, uint8_t *data, uint8_t *len, cdc_tr_fdcan_config_s *config);
     // bool fdcan_queue_pop(cdc_tr_fdcan_s *fdcan_buf);
@@ -57,7 +55,6 @@ private:
     prot_cdc2comm_s prot_tdata;
     
     std::thread ser_recv_thread;
-    // cdc_tr_fdcan_config_s fdcan_config_rx;
     // fdcan_queue fdcan_queue_rx;
 
     uint8_t comm_init_flag = 0;
@@ -69,7 +66,7 @@ private:
     void fdcan_init(void);
     void set_fdcan_baud(arb_baud_t arb_baud, data_baud_t data_baud);
     void set_fdcan_baud(fdcan_param_s *p_fdcan_param);
-    uint8_t fdcan_len(uint8_t size);
+    uint8_t fdcan_len(bool fdcan_flag, uint8_t size);
     void get_comm_version();
     // void fdcan_process(uint8_t *data, uint16_t len);
     void send();
