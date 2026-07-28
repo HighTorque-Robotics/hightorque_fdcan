@@ -18,6 +18,7 @@ canport::canport(uint8_t portx, std::string serial_full_prefix)
     serial_init(portx, serial_full_prefix);
     get_comm_version();
     comm_init();
+    set_rdata_num(1);
     if (comm_version.data32 < VER_COMBINE(4, 8, 8))
     {
         PRINT_ERROR("The communication board version is too low!!!");
@@ -25,6 +26,7 @@ canport::canport(uint8_t portx, std::string serial_full_prefix)
     }
 
     fdcan_init();
+    
 
     const auto t2 = std::chrono::steady_clock::now();
     auto t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
@@ -263,7 +265,7 @@ void canport::get_comm_version()
     for (int i = 0; i < 5; i++)
     {
         send();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
         if (comm_version.data32 >= VER_COMBINE(3, 0, 0))
         {
             PRINT_INFO_G("board version: v%d.%d.%d", comm_version.major, comm_version.minor, comm_version.patch);
@@ -283,10 +285,10 @@ void canport::comm_init()
     prot_tdata.head.s.len = 0;
 
     comm_init_flag = 0;
-    for (int i = 0; i < 50; i++)
+    for (int i = 0; i < 5; i++)
     {
         send();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
         if (comm_init_flag != 0)
         {
             PRINT_INFO_G("comm init");
@@ -295,6 +297,29 @@ void canport::comm_init()
     }
 
     PRINT_ERROR("comm init error!");
+    exit(1);
+}
+
+
+void canport::set_rdata_num(uint8_t num)
+{
+    port_tdata_clean(MODE_RDATA_NUM, 1);
+
+    prot_tdata.data.raw[0] = num;
+
+    set_rdata_num_flag = 0;
+    for (int i = 0; i < 5; i++)
+    {
+        send();
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        if (set_rdata_num_flag != 0)
+        {
+            PRINT_INFO_G("set rdata max num");
+            return;
+        }
+    }
+
+    PRINT_ERROR("set rdata max num");
     exit(1);
 }
 
@@ -312,10 +337,10 @@ void canport::set_fdcan_baud(fdcan_param_s *p_fdcan_param)
     prot_tdata.data.fdcan_param = *p_fdcan_param;
 
     set_fdcan_baud_flag = 99;
-    for (int i = 0; i < 50; i++)
+    for (int i = 0; i < 5; i++)
     {
         send();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
         if (set_fdcan_baud_flag != 99)
         {
             PRINT_INFO_G("set fdcan baud ok");
@@ -589,6 +614,9 @@ void canport::recv()
                 break;
             case MODE_FDCAN_PARAM:
                 set_fdcan_baud_flag = prot_rdata.data.s.raw[0];
+                break;
+            case MODE_RDATA_NUM:
+                set_rdata_num_flag = prot_rdata.data.s.raw[0];
                 break;
             default:
                 break;

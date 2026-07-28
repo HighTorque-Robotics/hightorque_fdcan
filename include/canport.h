@@ -59,11 +59,13 @@ private:
 
     uint8_t comm_init_flag = 0;
     uint8_t set_fdcan_baud_flag = 0;
+    uint8_t set_rdata_num_flag = 0;
     
     void serial_init(uint8_t portx, std::string serial_full_prefix);
     void port_tdata_clean(const uint8_t mode, const uint16_t len);
     void comm_init(void);
     void fdcan_init(void);
+    void set_rdata_num(uint8_t num);
     void set_fdcan_baud(arb_baud_t arb_baud, data_baud_t data_baud);
     void set_fdcan_baud(fdcan_param_s *p_fdcan_param);
     uint8_t fdcan_len(bool fdcan_flag, uint8_t size);
