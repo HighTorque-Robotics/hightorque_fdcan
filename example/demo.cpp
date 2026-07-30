@@ -18,7 +18,7 @@ int main()
     std::signal(SIGINT, signalHandler);
     canport port1(1);
 
-    uint8_t tdata[4] = {0};
+    uint8_t tdata[64] = {0};
     for (uint8_t i = 0; i < sizeof(tdata); i++)
     {
         tdata[i] = i;
@@ -29,21 +29,21 @@ int main()
     while (!exitFlag.load())
     {
 
-        // while (port1.fdcan_queue_pop(&fdcan_buf))
-        // {
-        //     printf("id = %X, len = %d\n", fdcan_buf.id, fdcan_buf.len);
-        //     printf("fdcan = %d, brs = %d, id = %d\n", fdcan_buf.config.fdcan_flag, fdcan_buf.config.brs_flag, fdcan_buf.config.id_flag);
+        while (port1.fdcan_queue_pop(&fdcan_buf))
+        {
+            printf("id = %X, len = %d\n", fdcan_buf.id, fdcan_buf.len);
+            printf("fdcan = %d, brs = %d, id = %d\n", fdcan_buf.config.fdcan_flag, fdcan_buf.config.brs_flag, fdcan_buf.config.id_flag);
 
-        //     for (int i = 0; i < fdcan_buf.len; i++)
-        //     {
-        //         printf("%02X ", fdcan_buf.data[i]);
-        //         if (i == 31)
-        //         {
-        //             printf("\n");
-        //         }
-        //     }
-        //     printf("\n\n\n");
-        // }
+            for (int i = 0; i < fdcan_buf.len; i++)
+            {
+                printf("%02X ", fdcan_buf.data[i]);
+                if (i == 31)
+                {
+                    printf("\n");
+                }
+            }
+            printf("\n\n\n");
+        }
 
         for (int i = 0; i < 20; i++)
         {

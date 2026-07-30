@@ -6,7 +6,7 @@
 
 
 
-canport::canport(uint8_t portx, std::string serial_full_prefix)
+canport::canport(uint8_t portx,  uint8_t cache_num, std::string serial_full_prefix)
 {
     const auto t1 = std::chrono::steady_clock::now();
 
@@ -18,7 +18,7 @@ canport::canport(uint8_t portx, std::string serial_full_prefix)
     serial_init(portx, serial_full_prefix);
     get_comm_version();
     comm_init();
-    set_rdata_num(1);
+    set_cache_num(cache_num);
     if (comm_version.data32 < VER_COMBINE(6, 0, 0))
     {
         PRINT_ERROR("The communication board version is too low!!!");
@@ -301,18 +301,18 @@ void canport::comm_init()
 }
 
 
-void canport::set_rdata_num(uint8_t num)
+void canport::set_cache_num(uint8_t num)
 {
     port_tdata_clean(MODE_CACHE_NUM, 1);
 
     prot_tdata.data.raw[0] = num;
 
-    set_rdata_num_flag = 0;
+    set_cache_num_flag = 0;
     for (int i = 0; i < 5; i++)
     {
         send();
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        if (set_rdata_num_flag != 0)
+        if (set_cache_num_flag != 0)
         {
             PRINT_INFO_G("set rdata max num");
             return;
@@ -504,10 +504,10 @@ void canport::fdcan_process(uint8_t *data, uint16_t len)
     }
 
     
-#if 1
+#if 0
     const auto now = std::chrono::system_clock::now();
     const auto now_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() / 1000.0;
-    static double time_old = 0;
+    static double time_old = now_time;
 
     printf("-----------process len = %d-------------------\n", len);
     printf("time_new - time_old = %fs\r\n", now_time - time_old);
@@ -617,7 +617,7 @@ void canport::recv()
                 set_fdcan_baud_flag = prot_rdata.data.s.raw[0];
                 break;
             case MODE_CACHE_NUM:
-                set_rdata_num_flag = prot_rdata.data.s.raw[0];
+                set_cache_num_flag = prot_rdata.data.s.raw[0];
                 break;
             case MODE_FDCAN_PASS:
                 fdcan_process(&prot_rdata.data.raw[3], prot_rdata.head.s.len - 3);
