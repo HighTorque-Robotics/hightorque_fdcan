@@ -8,6 +8,7 @@
 
 canport::canport(uint8_t portx,  uint8_t cache_num, std::string serial_full_prefix)
 {
+    canpot_id = portx;
     const auto t1 = std::chrono::steady_clock::now();
 
     comm_version.data32 = 0;
@@ -477,6 +478,12 @@ void canport::set_fdcan_baud(arb_baud_t arb_baud, data_baud_t data_baud)
 }   
 
 
+fdcan_state_s *canport::get_canport_state()
+{
+    return &canport_state;
+}
+
+
 void canport::fdcan_send()
 {
     send();
@@ -603,6 +610,15 @@ void canport::recv()
             #endif
 
             canport_state = prot_rdata.data.s.fdcan_state;
+            if (canport_state.fault > FDCAN_STATUS_ERROR_WARNING || canport_state.fault == FDCAN_STATUS_UNKNOWN)
+            {
+                PRINT_ERROR("canport[%d] flaut = %d, rx = %d, tx = %d", canpot_id, canport_state.fault, canport_state.rx_err_num, canport_state.tx_err_num);
+            }
+            else if (canport_state.fault == FDCAN_STATUS_ERROR_WARNING)
+            {
+                PRINT_INFO("\033[1;32mcanport[%d] flaut = %d, rx = %d, tx = %d\033[0m", canpot_id, canport_state.fault, canport_state.rx_err_num, canport_state.tx_err_num);
+            }
+
             switch (prot_rdata.head.s.cmd)
             {
             case MODE_COMM_VERSION:

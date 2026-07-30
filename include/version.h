@@ -12,7 +12,7 @@
 #define VER_GET_PATCH(version)              ((uint8_t)(((version) >> 0) & 0xFF))
 
 
-#define  HIGHTORQUE_FDCAN_VERSION  VER_COMBINE(1, 0, 0)  // 版本号
+#define  HIGHTORQUE_FDCAN_VERSION  VER_COMBINE(2, 0, 0)  // 版本号
 
 
 #endif
