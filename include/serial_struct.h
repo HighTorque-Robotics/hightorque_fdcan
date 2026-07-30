@@ -19,7 +19,7 @@
 #define  MODE_COMM_VERSION      1  // 通信板版本号
 #define  MODE_COMM_INIT         2  // 通信板初始化
 #define  MODE_FDCAN_PARAM       3  // 自定义 fdcan 的波特率
-#define  MODE_RDATA_NUM         4  //
+#define  MODE_CACHE_NUM         4  // 设置缓存的数量
 
 #define  MODE_FDCAN_PASS        10  // fdcan 透传
 #define  MODE_MOTOR_STATE       20  // 查询电机状态

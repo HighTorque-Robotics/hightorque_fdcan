@@ -19,7 +19,7 @@ canport::canport(uint8_t portx, std::string serial_full_prefix)
     get_comm_version();
     comm_init();
     set_rdata_num(1);
-    if (comm_version.data32 < VER_COMBINE(4, 8, 8))
+    if (comm_version.data32 < VER_COMBINE(6, 0, 0))
     {
         PRINT_ERROR("The communication board version is too low!!!");
         exit(1);
@@ -150,27 +150,27 @@ uint8_t canport::fdcan_data(uint32_t id, uint8_t *data, uint8_t len, bool fdcan_
 }
 
 
-// bool canport::fdcan_queue_pop(uint32_t *id, uint8_t *data, uint8_t *len, cdc_tr_fdcan_config_s *config)
-// {
-//     cdc_tr_fdcan_s fdcan_buf;
+bool canport::fdcan_queue_pop(uint32_t *id, uint8_t *data, uint8_t *len, fdcan_config_s *config)
+{
+    fdcan_msg_s fdcan_buf;
     
-//     const bool r = fdcan_queue_rx.pop(fdcan_buf);
-//     if (r == true)
-//     {
-//         *id = fdcan_buf.id;
-//         *len = fdcan_buf.len;
-//         config->data = fdcan_buf.config.data;
-//         memcpy(data, fdcan_buf.data, fdcan_buf.len);
-//     }
+    const bool r = fdcan_queue_rx.pop(fdcan_buf);
+    if (r == true)
+    {
+        *id = fdcan_buf.id;
+        *len = fdcan_buf.len;
+        config->data = fdcan_buf.config.data;
+        memcpy(data, fdcan_buf.data, fdcan_buf.len);
+    }
 
-//     return r;
-// }
+    return r;
+}
 
 
-// bool canport::fdcan_queue_pop(cdc_tr_fdcan_s *fdcan_buf)
-// {
-//     return fdcan_queue_rx.pop(*fdcan_buf);
-// }
+bool canport::fdcan_queue_pop(fdcan_msg_s *fdcan_buf)
+{
+    return fdcan_queue_rx.pop(*fdcan_buf);
+}
 
 
 void canport::serial_init(uint8_t portx, std::string serial_full_prefix)
@@ -303,7 +303,7 @@ void canport::comm_init()
 
 void canport::set_rdata_num(uint8_t num)
 {
-    port_tdata_clean(MODE_RDATA_NUM, 1);
+    port_tdata_clean(MODE_CACHE_NUM, 1);
 
     prot_tdata.data.raw[0] = num;
 
@@ -484,54 +484,54 @@ void canport::fdcan_send()
 }
 
 
-// void canport::fdcan_process(uint8_t *data, uint16_t len)
-// {
-//     const uint8_t fdcan_config_len = 5 + sizeof(cdc_tr_fdcan_config_s);
-//     uint32_t index = 0;
+void canport::fdcan_process(uint8_t *data, uint16_t len)
+{
+    const uint8_t fdcan_config_len = 5 + sizeof(fdcan_config_s);
+    uint32_t index = 0;
 
-//     while(len >= fdcan_config_len + index)
-//     {
-//         cdc_tr_fdcan_s const * p_tran = (cdc_tr_fdcan_s *)&data[index];
-//         cdc_tr_fdcan_s fdcan_buf;
+    while(len >= fdcan_config_len + index)
+    {
+        fdcan_msg_s const * p_tran = (fdcan_msg_s *)&data[index];
+        fdcan_msg_s fdcan_buf;
 
-//         fdcan_buf.config = p_tran->config;
-//         fdcan_buf.id = p_tran->id;
-//         fdcan_buf.len = p_tran->len;
+        fdcan_buf.config = p_tran->config;
+        fdcan_buf.id = p_tran->id;
+        fdcan_buf.len = p_tran->len;
 
-//         memcpy(fdcan_buf.data, p_tran->data, p_tran->len);
-//         fdcan_queue_rx.push(fdcan_buf);
-//         index += p_tran->len + fdcan_config_len;
-//     }
+        memcpy(fdcan_buf.data, p_tran->data, p_tran->len);
+        fdcan_queue_rx.push(fdcan_buf);
+        index += p_tran->len + fdcan_config_len;
+    }
 
     
-// #if 0
-//     const auto now = std::chrono::system_clock::now();
-//     const auto now_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() / 1000.0;
-//     static double time_old = 0;
+#if 1
+    const auto now = std::chrono::system_clock::now();
+    const auto now_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() / 1000.0;
+    static double time_old = 0;
 
-//     printf("-----------process len = %d-------------------\n", len);
-//     printf("time_new - time_old = %fs\r\n", now_time - time_old);
-//     time_old = now_time;
+    printf("-----------process len = %d-------------------\n", len);
+    printf("time_new - time_old = %fs\r\n", now_time - time_old);
+    time_old = now_time;
 
-//     cdc_tr_fdcan_s fdcan_rx;
+    fdcan_msg_s fdcan_rx;
 
-//     while (fdcan_queue_rx.pop(fdcan_rx))
-//     {
-//         printf("id = %X, len = %d\n", fdcan_rx.id, fdcan_rx.len);
-//         printf("fdcan = %d, brs = %d, id = %d\n", fdcan_rx.config.fdcan_flag, fdcan_rx.config.brs_flag, fdcan_rx.config.id_flag);
+    while (fdcan_queue_rx.pop(fdcan_rx))
+    {
+        printf("id = %X, len = %d\n", fdcan_rx.id, fdcan_rx.len);
+        printf("fdcan = %d, brs = %d, id = %d\n", fdcan_rx.config.fdcan_flag, fdcan_rx.config.brs_flag, fdcan_rx.config.id_flag);
 
-//         for (int i = 0; i < fdcan_rx.len; i++)
-//         {
-//             printf("%2X ", fdcan_rx.data[i]);
-//             if (i == 31)
-//             {
-//                 printf("\n");
-//             }
-//         }
-//         printf("\n\n\n");
-//     }
-// #endif
-// }
+        for (int i = 0; i < fdcan_rx.len; i++)
+        {
+            printf("%2X ", fdcan_rx.data[i]);
+            if (i == 31)
+            {
+                printf("\n");
+            }
+        }
+        printf("\n\n\n");
+    }
+#endif
+}
 
 
 void canport::send()
@@ -602,6 +602,7 @@ void canport::recv()
             printf("\n");
             #endif
 
+            canport_state = prot_rdata.data.s.fdcan_state;
             switch (prot_rdata.head.s.cmd)
             {
             case MODE_COMM_VERSION:
@@ -615,8 +616,11 @@ void canport::recv()
             case MODE_FDCAN_PARAM:
                 set_fdcan_baud_flag = prot_rdata.data.s.raw[0];
                 break;
-            case MODE_RDATA_NUM:
+            case MODE_CACHE_NUM:
                 set_rdata_num_flag = prot_rdata.data.s.raw[0];
+                break;
+            case MODE_FDCAN_PASS:
+                fdcan_process(&prot_rdata.data.raw[3], prot_rdata.head.s.len - 3);
                 break;
             default:
                 break;
