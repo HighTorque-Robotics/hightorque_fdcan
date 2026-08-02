@@ -18,7 +18,7 @@ int main()
     std::signal(SIGINT, signalHandler);
     canport port1(1);
 
-    uint8_t tdata[64] = {0};
+    uint8_t tdata[5] = {0};
     for (uint8_t i = 0; i < sizeof(tdata); i++)
     {
         tdata[i] = i;
@@ -45,12 +45,14 @@ int main()
             printf("\n\n\n");
         }
 
-        for (int i = 0; i < 20; i++)
+        // for (int i = 0; i < 20; i++)
+        static uint8_t i = 0;
         {
             if (port1.fdcan_data(i, tdata, sizeof(tdata), true, true, true))
             {
                 break;
             }
+            i++;
         }
         port1.fdcan_send();
         

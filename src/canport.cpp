@@ -119,6 +119,7 @@ void canport::fdcan_init()
 
     send();
     send();
+    prot_tdata.head.s.len = 0;
 }
 
 
