@@ -1,3 +1,5 @@
+#ifndef _CANPORT_H
+#define _CANPORT_H
 
 #include "serial_struct.h"
 #include "serial/serial.h"
@@ -33,11 +35,11 @@ typedef enum
 } data_baud_t;
 
 
-class canport
+class CanPort
 {
 public:
-    canport(uint8_t portx = 1, uint8_t cache_num = 1, std::string serial_full_prefix = "/dev/ttyACM");
-    ~canport();
+    CanPort(uint8_t portx = 1, uint8_t cache_num = 1, std::string serial_full_prefix = "/dev/ttyACM");
+    ~CanPort();
     void set_cache_num(uint8_t num);
 
     void fdcan_send();
@@ -53,13 +55,13 @@ public:
 private:
     version_s comm_version;  // 通信板版本号
     version_s sdk_version;   // SDK 版本号
-    uint8_t canpot_id = 1;
+    uint8_t canport_id = 1;
 
     serial::Serial ser_dev;
     prot_cdc2comm_s prot_tdata;
     
     std::thread ser_recv_thread;
-    fdcan_queue fdcan_queue_rx;
+    FdcanQueue fdcan_queue_rx;
 
     fdcan_state_s canport_state;
 
@@ -78,3 +80,5 @@ private:
     void recv();
 };
 
+
+#endif

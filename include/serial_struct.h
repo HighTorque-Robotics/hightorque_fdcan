@@ -1,5 +1,5 @@
-#ifndef _SERIAL_STRUCT_H_
-#define _SERIAL_STRUCT_H_
+#ifndef _SERIAL_STRUCT_H
+#define _SERIAL_STRUCT_H
 
 
 #include <stdint.h>
@@ -95,15 +95,15 @@ typedef struct
     uint16_t len;
     uint8_t  crc_head;
     uint8_t  crc_data;
-} prot_head_ss;
+} prot_head_field_s;
 
 
 typedef struct
 {
     union
     {
-        prot_head_ss s;
-        uint8_t raw[sizeof(prot_head_ss)];
+        prot_head_field_s s;
+        uint8_t raw[sizeof(prot_head_field_s)];
     };
 } prot_head_s;
 

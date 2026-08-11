@@ -6,9 +6,9 @@
 
 
 
-canport::canport(uint8_t portx,  uint8_t cache_num, std::string serial_full_prefix)
+CanPort::CanPort(uint8_t portx,  uint8_t cache_num, std::string serial_full_prefix)
 {
-    canpot_id = portx;
+    canport_id = portx;
     const auto t1 = std::chrono::steady_clock::now();
 
     comm_version.data32 = 0;
@@ -35,9 +35,9 @@ canport::canport(uint8_t portx,  uint8_t cache_num, std::string serial_full_pref
     std::cout << "初始化耗时：" << t.count() << "ms" << std::endl;
 }
 
-canport::~canport()
+CanPort::~CanPort()
 {
-    printf("canport close\n");
+    printf("CanPort close\n");
     ser_dev.close();
 
     if (ser_recv_thread.joinable())
@@ -47,7 +47,7 @@ canport::~canport()
 }
 
 
-uint8_t canport::fdcan_len(bool fdcan_flag, uint8_t size)
+uint8_t CanPort::fdcan_len(bool fdcan_flag, uint8_t size)
 {
     uint8_t data_len = 0;
 
@@ -93,7 +93,7 @@ uint8_t canport::fdcan_len(bool fdcan_flag, uint8_t size)
 }
 
 
-void canport::port_tdata_clean(const uint8_t mode, const uint16_t len)
+void CanPort::port_tdata_clean(const uint8_t mode, const uint16_t len)
 {
     if (prot_tdata.head.s.cmd != mode)
     {
@@ -105,7 +105,7 @@ void canport::port_tdata_clean(const uint8_t mode, const uint16_t len)
 }
 
 
-void canport::fdcan_init()
+void CanPort::fdcan_init()
 {
     port_tdata_clean(MODE_FDCAN_PASS, PROT_DATA_LEN);
 
@@ -123,7 +123,7 @@ void canport::fdcan_init()
 }
 
 
-uint8_t canport::fdcan_data(uint32_t id, uint8_t *data, uint8_t len, bool fdcan_flag, bool brs_flag, bool ext_flag)
+uint8_t CanPort::fdcan_data(uint32_t id, uint8_t *data, uint8_t len, bool fdcan_flag, bool brs_flag, bool ext_flag)
 {
     const uint8_t fdcan_data_len = fdcan_len(fdcan_flag, len);
     const uint8_t fdcan_config_len = sizeof(id) + sizeof(fdcan_config_s) + sizeof(len);
@@ -152,7 +152,7 @@ uint8_t canport::fdcan_data(uint32_t id, uint8_t *data, uint8_t len, bool fdcan_
 }
 
 
-bool canport::fdcan_queue_pop(uint32_t *id, uint8_t *data, uint8_t *len, fdcan_config_s *config)
+bool CanPort::fdcan_queue_pop(uint32_t *id, uint8_t *data, uint8_t *len, fdcan_config_s *config)
 {
     fdcan_msg_s fdcan_buf;
     
@@ -169,13 +169,13 @@ bool canport::fdcan_queue_pop(uint32_t *id, uint8_t *data, uint8_t *len, fdcan_c
 }
 
 
-bool canport::fdcan_queue_pop(fdcan_msg_s *fdcan_buf)
+bool CanPort::fdcan_queue_pop(fdcan_msg_s *fdcan_buf)
 {
     return fdcan_queue_rx.pop(*fdcan_buf);
 }
 
 
-void canport::serial_init(uint8_t portx, std::string serial_full_prefix)
+void CanPort::serial_init(uint8_t portx, std::string serial_full_prefix)
 {
     std::vector<serial::PortInfo> all_ports = serial::list_ports();
     std::vector<std::string> com_board_ports;
@@ -256,11 +256,11 @@ void canport::serial_init(uint8_t portx, std::string serial_full_prefix)
     }
     
     PRINT_INFO_G("Serial Port %s initialized", port_name.c_str());
-    ser_recv_thread = std::thread(&canport::recv, this);
+    ser_recv_thread = std::thread(&CanPort::recv, this);
 }
 
 
-void canport::get_comm_version()
+void CanPort::get_comm_version()
 {
     port_tdata_clean(MODE_COMM_VERSION, 0);
 
@@ -280,7 +280,7 @@ void canport::get_comm_version()
 }
 
 
-void canport::comm_init()
+void CanPort::comm_init()
 {
     port_tdata_clean(MODE_COMM_INIT, 0);
 
@@ -303,7 +303,7 @@ void canport::comm_init()
 }
 
 
-void canport::set_cache_num(uint8_t num)
+void CanPort::set_cache_num(uint8_t num)
 {
     port_tdata_clean(MODE_CACHE_NUM, 1);
 
@@ -326,7 +326,7 @@ void canport::set_cache_num(uint8_t num)
 }
 
 
-void canport::set_fdcan_baud(fdcan_param_s *p_fdcan_param)
+void CanPort::set_fdcan_baud(fdcan_param_s *p_fdcan_param)
 {
     if (p_fdcan_param == NULL)
     {
@@ -355,7 +355,7 @@ void canport::set_fdcan_baud(fdcan_param_s *p_fdcan_param)
 }
 
 
-void canport::set_fdcan_baud(arb_baud_t arb_baud, data_baud_t data_baud)
+void CanPort::set_fdcan_baud(arb_baud_t arb_baud, data_baud_t data_baud)
 {
     fdcan_param_s param = {0};
 
@@ -473,36 +473,36 @@ void canport::set_fdcan_baud(arb_baud_t arb_baud, data_baud_t data_baud)
 }
 
 
-fdcan_state_s *canport::get_canport_state()
+fdcan_state_s *CanPort::get_canport_state()
 {
     return &canport_state;
 }
 
 
-void canport::fdcan_send()
+void CanPort::fdcan_send()
 {
     send();
     prot_tdata.head.s.len = 0;
 }
 
 
-void canport::fdcan_process(uint8_t *data, uint16_t len)
+void CanPort::fdcan_process(uint8_t *data, uint16_t len)
 {
     const uint8_t fdcan_config_len = 5 + sizeof(fdcan_config_s);
     uint32_t index = 0;
 
     while(len >= fdcan_config_len + index)
     {
-        fdcan_msg_s const * p_tran = (fdcan_msg_s *)&data[index];
+        fdcan_msg_s const * p_frame = (fdcan_msg_s *)&data[index];
         fdcan_msg_s fdcan_buf;
 
-        fdcan_buf.config = p_tran->config;
-        fdcan_buf.id = p_tran->id;
-        fdcan_buf.len = p_tran->len;
+        fdcan_buf.config = p_frame->config;
+        fdcan_buf.id = p_frame->id;
+        fdcan_buf.len = p_frame->len;
 
-        memcpy(fdcan_buf.data, p_tran->data, p_tran->len);
+        memcpy(fdcan_buf.data, p_frame->data, p_frame->len);
         fdcan_queue_rx.push(fdcan_buf);
-        index += p_tran->len + fdcan_config_len;
+        index += p_frame->len + fdcan_config_len;
     }
 
     
@@ -536,7 +536,7 @@ void canport::fdcan_process(uint8_t *data, uint16_t len)
 }
 
 
-void canport::send()
+void CanPort::send()
 {
     prot_tdata.head.s.crc_head = crc8_ccitt(&(prot_tdata.head.raw[1]), 3);
     prot_tdata.head.s.crc_data = crc8_ccitt(&(prot_tdata.data.raw[0]), prot_tdata.head.s.len);
@@ -566,7 +566,7 @@ void canport::send()
 }
 
 
-void canport::recv()
+void CanPort::recv()
 {
     prot_comm2cdc_s prot_rdata = {0};
 
@@ -607,11 +607,11 @@ void canport::recv()
             canport_state = prot_rdata.data.s.fdcan_state;
             if (canport_state.fault > FDCAN_STATUS_ERROR_WARNING || canport_state.fault == FDCAN_STATUS_UNKNOWN)
             {
-                PRINT_ERROR("canport[%d] flaut = %d, rx = %d, tx = %d", canpot_id, canport_state.fault, canport_state.rx_err_num, canport_state.tx_err_num);
+                PRINT_ERROR("CanPort[%d] fault = %d, rx = %d, tx = %d", canport_id, canport_state.fault, canport_state.rx_err_num, canport_state.tx_err_num);
             }
             else if (canport_state.fault == FDCAN_STATUS_ERROR_WARNING)
             {
-                PRINT_INFO("\033[1;32mcanport[%d] flaut = %d, rx = %d, tx = %d\033[0m", canpot_id, canport_state.fault, canport_state.rx_err_num, canport_state.tx_err_num);
+                PRINT_INFO("\033[1;32mcanport[%d] fault = %d, rx = %d, tx = %d\033[0m", canport_id, canport_state.fault, canport_state.rx_err_num, canport_state.tx_err_num);
             }
 
             switch (prot_rdata.head.s.cmd)

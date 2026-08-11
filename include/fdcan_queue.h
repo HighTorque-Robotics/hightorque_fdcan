@@ -7,15 +7,15 @@
 #include "serial_struct.h"
 
 
-class fdcan_queue
+class FdcanQueue
 {
 public:
-    explicit fdcan_queue(size_t capacity = 20);
+    explicit FdcanQueue(size_t capacity = 20);
 
-    fdcan_queue(const fdcan_queue &) = delete;
-    fdcan_queue &operator=(const fdcan_queue &) = delete;
+    FdcanQueue(const FdcanQueue &) = delete;
+    FdcanQueue &operator=(const FdcanQueue &) = delete;
 
-    ~fdcan_queue();
+    ~FdcanQueue();
 
     bool push(const fdcan_msg_s &item);
     bool pop(fdcan_msg_s &item);
@@ -24,17 +24,17 @@ public:
     bool empty() const;
     bool full() const;
     size_t size() const;
-    size_t capacity() const { return capacity_; }
+    size_t get_capacity() const { return capacity; }
 
 private:
     size_t next_index(size_t index) const;
 
-    fdcan_msg_s *buffer_;
-    size_t capacity_;
-    size_t head_;            // 出队位置
-    size_t tail_;            // 入队位置
-    size_t count_;           // 当前元素个数
-    mutable std::mutex mtx_; // 互斥锁
+    fdcan_msg_s *buffer;
+    size_t capacity;
+    size_t head;            // 出队位置
+    size_t tail;            // 入队位置
+    size_t count;           // 当前元素个数
+    mutable std::mutex mtx; // 互斥锁
 };
 
 #endif

@@ -6,17 +6,17 @@
 #include <thread>
 
 
-std::atomic<bool> exitFlag(false);
-void signalHandler(int signum) 
+std::atomic<bool> exit_flag(false);
+void signal_handler(int signum) 
 {
-    exitFlag.store(true);
+    exit_flag.store(true);
 }
 
 
 int main()
 {
-    std::signal(SIGINT, signalHandler);
-    canport port1(1);
+    std::signal(SIGINT, signal_handler);
+    CanPort port1(1);
 
     uint8_t tdata[5] = {0};
     for (uint8_t i = 0; i < sizeof(tdata); i++)
@@ -26,7 +26,7 @@ int main()
 
     uint32_t id = 0;
     fdcan_msg_s fdcan_buf;
-    while (!exitFlag.load())
+    while (!exit_flag.load())
     {
 
         while (port1.fdcan_queue_pop(&fdcan_buf))
