@@ -22,7 +22,6 @@ typedef enum
 
 typedef enum 
 {
-    DATA_BAUD_50K,
     DATA_BAUD_100K,
     DATA_BAUD_125K,
     DATA_BAUD_250K,

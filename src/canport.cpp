@@ -416,53 +416,47 @@ void canport::set_fdcan_baud(arb_baud_t arb_baud, data_baud_t data_baud)
 
     switch (data_baud) 
     {
-    case DATA_BAUD_50K:
-        param.data_pre = 40;
-        param.data_seg1 = 24;
-        param.data_seg2 = 15;
-        param.data_sjw = 15;
-        break;
     case DATA_BAUD_100K:
-        param.data_pre = 40;
+        param.data_pre = 32;
         param.data_seg1 = 16;
-        param.data_seg2 = 3;
-        param.data_sjw = 2;
+        param.data_seg2 = 8;
+        param.data_sjw = 4;
         break;
     case DATA_BAUD_125K:
-        param.data_pre = 5;
-        param.data_seg1 = 111;
-        param.data_seg2 = 16;
-        param.data_sjw = 15;
+        param.data_pre = 32;
+        param.data_seg1 = 14;
+        param.data_seg2 = 5;
+        param.data_sjw = 4;
         break;
     case DATA_BAUD_250K:
-        param.data_pre = 20;
-        param.data_seg1 = 12;
-        param.data_seg2 = 3;
-        param.data_sjw = 3;
+        param.data_pre = 16;
+        param.data_seg1 = 14;
+        param.data_seg2 = 5;
+        param.data_sjw = 4;
         break;
     case DATA_BAUD_500K:
-        param.data_pre = 2;
-        param.data_seg1 = 63;
-        param.data_seg2 = 16;
-        param.data_sjw = 16;
+        param.data_pre = 8;
+        param.data_seg1 = 14;
+        param.data_seg2 = 5;
+        param.data_sjw = 4;
         break;
     case DATA_BAUD_1M:
-        param.data_pre = 1;
-        param.data_seg1 = 59;
-        param.data_seg2 = 20;
-        param.data_sjw = 15;
+        param.data_pre = 4;
+        param.data_seg1 = 14;
+        param.data_seg2 = 5;
+        param.data_sjw = 4;
         break;
     case DATA_BAUD_2M:
-        param.data_pre = 1;
-        param.data_seg1 = 29;
-        param.data_seg2 = 10;
-        param.data_sjw = 10;
+        param.data_pre = 2;
+        param.data_seg1 = 14;
+        param.data_seg2 = 5;
+        param.data_sjw = 4;
         break;
     case DATA_BAUD_4M:
         param.data_pre = 1;
         param.data_seg1 = 14;
         param.data_seg2 = 5;
-        param.data_sjw = 5;
+        param.data_sjw = 4;
         break;
     case DATA_BAUD_5M:
         param.data_pre = 2;
@@ -476,7 +470,7 @@ void canport::set_fdcan_baud(arb_baud_t arb_baud, data_baud_t data_baud)
     }
 
     set_fdcan_baud(&param);
-}   
+}
 
 
 fdcan_state_s *canport::get_canport_state()
