@@ -3,13 +3,14 @@
 #include "crc.h"
 
 #include <algorithm>
+#include <chrono>
 
 
 
 CanPort::CanPort(uint8_t portx,  uint8_t cache_num, std::string serial_full_prefix)
 {
-    canport_id = portx;
-    const auto t1 = std::chrono::steady_clock::now();
+    can_port_id = portx;
+    const auto init_start = std::chrono::steady_clock::now();
 
     comm_version.data32 = 0;
     sdk_version.data32 = HIGHTORQUE_FDCAN_VERSION;
@@ -27,17 +28,15 @@ CanPort::CanPort(uint8_t portx,  uint8_t cache_num, std::string serial_full_pref
     }
 
     fdcan_init();
-    
 
-    const auto t2 = std::chrono::steady_clock::now();
-    auto t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-
-    std::cout << "初始化耗时：" << t.count() << "ms" << std::endl;
+    const auto init_elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - init_start).count();
+    PRINT_INFO_G("初始化耗时：%dms", static_cast<int>(init_elapsed_ms));
 }
 
 CanPort::~CanPort()
 {
-    printf("CanPort close\n");
+    PRINT_INFO("CanPort close");
     ser_dev.close();
 
     if (ser_recv_thread.joinable())
@@ -109,7 +108,6 @@ void CanPort::fdcan_init()
 {
     port_tdata_clean(MODE_FDCAN_PASS, PROT_DATA_LEN);
 
-    prot_tdata.data.fdcan_msg.data[0];
     prot_tdata.data.fdcan_msg.config.brs_flag = 1;
     prot_tdata.data.fdcan_msg.config.fdcan_flag = 1;
     prot_tdata.data.fdcan_msg.config.id_flag = 1;
@@ -225,10 +223,10 @@ void CanPort::serial_init(uint8_t portx, std::string serial_full_prefix)
         exit(1);
     }
 
-    PRINT_INFO("Detected serial ports: ");
-    for (const auto& port_name : com_board_ports)
+    PRINT_INFO("detected %zu serial port(s):", com_board_ports.size());
+    for (size_t i = 0; i < com_board_ports.size(); i++)
     {
-        PRINT_INFO("%s", port_name.c_str());
+        PRINT_INFO("  [%zu] %s", i, com_board_ports[i].c_str());
     }
 
     if (portx > 0 && com_board_ports.size() < portx)
@@ -316,12 +314,12 @@ void CanPort::set_cache_num(uint8_t num)
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
         if (set_cache_num_flag != 0)
         {
-            PRINT_INFO_G("set rdata max num");
+            PRINT_INFO_G("set cache num ok");
             return;
         }
     }
 
-    PRINT_ERROR("set rdata max num");
+    PRINT_ERROR("set cache num error!");
     exit(1);
 }
 
@@ -473,9 +471,9 @@ void CanPort::set_fdcan_baud(arb_baud_t arb_baud, data_baud_t data_baud)
 }
 
 
-fdcan_state_s *CanPort::get_canport_state()
+fdcan_state_s *CanPort::get_can_port_state()
 {
-    return &canport_state;
+    return &can_port_state;
 }
 
 
@@ -604,14 +602,14 @@ void CanPort::recv()
             printf("\n");
             #endif
 
-            canport_state = prot_rdata.data.s.fdcan_state;
-            if (canport_state.fault > FDCAN_STATUS_ERROR_WARNING || canport_state.fault == FDCAN_STATUS_UNKNOWN)
+            can_port_state = prot_rdata.data.s.fdcan_state;
+            if (can_port_state.fault > FDCAN_STATUS_ERROR_WARNING || can_port_state.fault == FDCAN_STATUS_UNKNOWN)
             {
-                PRINT_ERROR("CanPort[%d] fault = %d, rx = %d, tx = %d", canport_id, canport_state.fault, canport_state.rx_err_num, canport_state.tx_err_num);
+                PRINT_ERROR("[CanPort%d] FDCAN fault: %d, rx_err: %d, tx_err: %d", can_port_id, can_port_state.fault, can_port_state.rx_err_num, can_port_state.tx_err_num);
             }
-            else if (canport_state.fault == FDCAN_STATUS_ERROR_WARNING)
+            else if (can_port_state.fault == FDCAN_STATUS_ERROR_WARNING)
             {
-                PRINT_INFO("\033[1;32mcanport[%d] fault = %d, rx = %d, tx = %d\033[0m", canport_id, canport_state.fault, canport_state.rx_err_num, canport_state.tx_err_num);
+                PRINT_INFO_G("[CanPort%d] FDCAN warning: %d, rx_err: %d, tx_err: %d", can_port_id, can_port_state.fault, can_port_state.rx_err_num, can_port_state.tx_err_num);
             }
 
             switch (prot_rdata.head.s.cmd)

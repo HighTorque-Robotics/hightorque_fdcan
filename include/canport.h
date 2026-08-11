@@ -51,11 +51,11 @@ public:
     void set_fdcan_baud(arb_baud_t arb_baud, data_baud_t data_baud);
     void set_fdcan_baud(fdcan_param_s *p_fdcan_param);
 
-    fdcan_state_s *get_canport_state(void);
+    fdcan_state_s *get_can_port_state(void);
 private:
     version_s comm_version;  // 通信板版本号
     version_s sdk_version;   // SDK 版本号
-    uint8_t canport_id = 1;
+    uint8_t can_port_id = 1;
 
     serial::Serial ser_dev;
     prot_cdc2comm_s prot_tdata;
@@ -63,7 +63,7 @@ private:
     std::thread ser_recv_thread;
     FdcanQueue fdcan_queue_rx;
 
-    fdcan_state_s canport_state;
+    fdcan_state_s can_port_state;
 
     uint8_t comm_init_flag = 0;
     uint8_t set_fdcan_baud_flag = 0;
