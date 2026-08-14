@@ -7,7 +7,7 @@
 
 
 
-CanPort::CanPort(uint8_t portx,  uint8_t cache_num, std::string serial_full_prefix)
+CanPort::CanPort(uint8_t portx, uint8_t cache_num)
 {
     can_port_id = portx;
     const auto init_start = std::chrono::steady_clock::now();
@@ -17,7 +17,7 @@ CanPort::CanPort(uint8_t portx,  uint8_t cache_num, std::string serial_full_pref
 
     PRINT_INFO_G("FDCAN_PASS version: %d.%d.%d", sdk_version.major, sdk_version.minor, sdk_version.patch);
 
-    serial_init(portx, serial_full_prefix);
+    serial_init(portx);
     get_comm_version();
     comm_init();
     set_cache_num(cache_num);
@@ -173,53 +173,28 @@ bool CanPort::fdcan_queue_pop(fdcan_msg_s *fdcan_buf)
 }
 
 
-void CanPort::serial_init(uint8_t portx, std::string serial_full_prefix)
+void CanPort::serial_init(uint8_t portx)
 {
     std::vector<serial::PortInfo> all_ports = serial::list_ports();
     std::vector<std::string> com_board_ports;
 
     for (const auto& port_info : all_ports)
     {
-        if (port_info.port.find(serial_full_prefix) == std::string::npos)
-        {
-            continue;
-        }
-
         std::string hw = port_info.hardware_id;
-        auto pos = hw.find("VID:PID=");
-        if (pos == std::string::npos)
-        {
-            continue;
-        }
+        std::transform(hw.begin(), hw.end(), hw.begin(), ::toupper);
 
-        std::string vid_pid = hw.substr(pos + 8);
-        auto colon = vid_pid.find(':');
-        if (colon == std::string::npos)
+        const bool linux_hardware_id = hw.find("VID:PID=CAF1:FFFF") != std::string::npos;
+        const bool windows_hardware_id = hw.find("VID_CAF1") != std::string::npos &&
+                                         hw.find("PID_FFFF") != std::string::npos;
+        if (linux_hardware_id || windows_hardware_id)
         {
-            continue;
-        }
-
-        std::string vid = vid_pid.substr(0, colon);
-        std::string pid_part = vid_pid.substr(colon + 1);
-        auto space = pid_part.find(' ');
-        if (space != std::string::npos)
-        {
-            pid_part = pid_part.substr(0, space);
-        }
-        std::string pid = pid_part;
-
-        std::transform(vid.begin(), vid.end(), vid.begin(), ::toupper);
-        std::transform(pid.begin(), pid.end(), pid.begin(), ::toupper);
-        if (vid == "CAF1" && pid == "FFFF")
-        {
-            
             com_board_ports.push_back(port_info.port);
         }
     }
 
     if (com_board_ports.empty())
     {
-        PRINT_ERROR("No serial ports found for prefix: %s", serial_full_prefix.c_str());
+        PRINT_ERROR("No communication board serial ports found (VID:PID=CAF1:FFFF)");
         exit(1);
     }
 

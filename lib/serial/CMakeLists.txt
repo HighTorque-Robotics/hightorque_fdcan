@@ -7,8 +7,13 @@ set(serial_SRCS
     include/serial/serial.h
     include/serial/v8stdint.h
 )
-list(APPEND serial_SRCS src/impl/unix.cc)
-list(APPEND serial_SRCS src/impl/list_ports/list_ports_linux.cc)
+if(WIN32)
+    list(APPEND serial_SRCS src/impl/win.cc)
+    list(APPEND serial_SRCS src/impl/list_ports/list_ports_win.cc)
+else()
+    list(APPEND serial_SRCS src/impl/unix.cc)
+    list(APPEND serial_SRCS src/impl/list_ports/list_ports_linux.cc)
+endif()
 
 # Add serial library
 add_library(${PROJECT_NAME} ${serial_SRCS})
@@ -19,5 +24,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(${PROJECT_NAME} rt pthread)
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} setupapi)
+else()
+    target_link_libraries(${PROJECT_NAME} rt pthread)
+endif()
 

@@ -38,7 +38,7 @@ typedef enum
 class CanPort
 {
 public:
-    CanPort(uint8_t portx = 1, uint8_t cache_num = 1, std::string serial_full_prefix = "/dev/ttyACM");
+    CanPort(uint8_t portx = 1, uint8_t cache_num = 1);
     ~CanPort();
     void set_cache_num(uint8_t num);
 
@@ -69,7 +69,7 @@ private:
     uint8_t set_fdcan_baud_flag = 0;
     uint8_t set_cache_num_flag = 0;
     
-    void serial_init(uint8_t portx, std::string serial_full_prefix);
+    void serial_init(uint8_t portx);
     void port_tdata_clean(const uint8_t mode, const uint16_t len);
     void comm_init(void);
     void fdcan_init(void);
