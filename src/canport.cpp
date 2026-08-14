@@ -176,7 +176,7 @@ bool CanPort::fdcan_queue_pop(fdcan_msg_s *fdcan_buf)
 void CanPort::serial_init(uint8_t portx)
 {
     std::vector<serial::PortInfo> all_ports = serial::list_ports();
-    std::vector<std::string> com_board_ports;
+    std::vector<serial::PortInfo> com_board_ports;
 
     for (const auto& port_info : all_ports)
     {
@@ -188,7 +188,7 @@ void CanPort::serial_init(uint8_t portx)
                                          hw.find("PID_FFFF") != std::string::npos;
         if (linux_hardware_id || windows_hardware_id)
         {
-            com_board_ports.push_back(port_info.port);
+            com_board_ports.push_back(port_info);
         }
     }
 
@@ -198,10 +198,23 @@ void CanPort::serial_init(uint8_t portx)
         exit(1);
     }
 
+#ifdef _WIN32
+    std::sort(com_board_ports.begin(), com_board_ports.end(),
+              [](const serial::PortInfo& left, const serial::PortInfo& right) {
+                  return left.hardware_id < right.hardware_id;
+              });
+#endif
+
     PRINT_INFO("detected %zu serial port(s):", com_board_ports.size());
     for (size_t i = 0; i < com_board_ports.size(); i++)
     {
-        PRINT_INFO("  [%zu] %s", i, com_board_ports[i].c_str());
+#ifdef _WIN32
+        PRINT_INFO("  [%zu] %s -> %s", i + 1,
+                   com_board_ports[i].hardware_id.c_str(),
+                   com_board_ports[i].port.c_str());
+#else
+        PRINT_INFO("  [%zu] %s", i + 1, com_board_ports[i].port.c_str());
+#endif
     }
 
     if (portx > 0 && com_board_ports.size() < portx)
@@ -210,7 +223,7 @@ void CanPort::serial_init(uint8_t portx)
         exit(1);
     }
 
-    const std::string port_name = com_board_ports[portx - 1].c_str();
+    const std::string port_name = com_board_ports[portx - 1].port;
     PRINT_INFO_G("port_name: %s", port_name.c_str());
 
     ser_dev.setPort(port_name.c_str());
