@@ -3,104 +3,104 @@
 #include <cstring>
 
 
-fdcan_queue::fdcan_queue(size_t capacity)
-    : capacity_(capacity), head_(0), tail_(0), count_(0)
+FdcanQueue::FdcanQueue(size_t capacity)
+    : capacity(capacity), head(0), tail(0), count(0)
 {
-    if (capacity_ == 0)
+    if (capacity == 0)
     {
-        buffer_ = nullptr;
+        buffer = nullptr;
         return;
     }
-    buffer_ = static_cast<cdc_tr_fdcan_s *>(std::malloc(capacity_ * sizeof(cdc_tr_fdcan_s)));
-    if (!buffer_)
+    buffer = static_cast<fdcan_msg_s *>(std::malloc(capacity * sizeof(fdcan_msg_s)));
+    if (!buffer)
     {
-        PRINT_ERROR("fdcan_queue malloc error!!!");
+        PRINT_ERROR("FdcanQueue malloc error!!!");
         throw std::bad_alloc();
     }
 }
 
 
-fdcan_queue::~fdcan_queue()
+FdcanQueue::~FdcanQueue()
 {
-    if (buffer_)
+    if (buffer)
     {
-        std::free(buffer_);
-        buffer_ = nullptr;
+        std::free(buffer);
+        buffer = nullptr;
     }
 }
 
 
-size_t fdcan_queue::next_index(size_t index) const
+size_t FdcanQueue::next_index(size_t index) const
 {
-    return (index + 1) % capacity_;
+    return (index + 1) % capacity;
 }
 
 
-bool fdcan_queue::push(const cdc_tr_fdcan_s &item)
+bool FdcanQueue::push(const fdcan_msg_s &item)
 {
-    std::lock_guard<std::mutex> lock(mtx_);
+    std::lock_guard<std::mutex> lock(mtx);
 
-    if (!buffer_ || capacity_ == 0)
+    if (!buffer || capacity == 0)
     {
         return false;
     }
 
-    if (count_ >= capacity_)
+    if (count >= capacity)
     {
-        head_ = next_index(head_);
-        --count_;
+        head = next_index(head);
+        --count;
     }
 
-    buffer_[tail_] = item;
-    tail_ = next_index(tail_);
-    ++count_;
+    buffer[tail] = item;
+    tail = next_index(tail);
+    ++count;
 
     return true;
 }
 
 
-bool fdcan_queue::pop(cdc_tr_fdcan_s &item)
+bool FdcanQueue::pop(fdcan_msg_s &item)
 {
-    std::lock_guard<std::mutex> lock(mtx_);
+    std::lock_guard<std::mutex> lock(mtx);
 
-    if (!buffer_ || count_ == 0)
+    if (!buffer || count == 0)
     {
         return false;
     }
 
-    item = buffer_[head_];
-    head_ = next_index(head_);
-    --count_;
+    item = buffer[head];
+    head = next_index(head);
+    --count;
 
     return true;
 }
 
 
-void fdcan_queue::clear()
+void FdcanQueue::clear()
 {
-    std::lock_guard<std::mutex> lock(mtx_);
-    head_ = 0;
-    tail_ = 0;
-    count_ = 0;
+    std::lock_guard<std::mutex> lock(mtx);
+    head = 0;
+    tail = 0;
+    count = 0;
 }
 
 
-bool fdcan_queue::empty() const
+bool FdcanQueue::empty() const
 {
-    std::lock_guard<std::mutex> lock(mtx_);
-    return count_ == 0;
+    std::lock_guard<std::mutex> lock(mtx);
+    return count == 0;
 }
 
 
-bool fdcan_queue::full() const
+bool FdcanQueue::full() const
 {
-    std::lock_guard<std::mutex> lock(mtx_);
-    return count_ >= capacity_;
+    std::lock_guard<std::mutex> lock(mtx);
+    return count >= capacity;
 }
 
 
-size_t fdcan_queue::size() const
+size_t FdcanQueue::size() const
 {
-    std::lock_guard<std::mutex> lock(mtx_);
-    return count_;
+    std::lock_guard<std::mutex> lock(mtx);
+    return count;
 }
